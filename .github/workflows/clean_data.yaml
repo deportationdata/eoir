@@ -17,11 +17,14 @@ jobs:
 
       - uses: r-lib/actions/setup-renv@v2
 
-      - name: Download and unzip data
+      - name: Download data
         run: |
           mkdir -p inputs
           wget -O eoir_data.zip "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip"
-          unzip -j eoir_data.zip "FOIA_TRAC_Report */*" -d inputs
+          
+      - name: Unzip data
+        run: |
+          unzip -j eoir_data.zip "EOIR Case Data */*" -d inputs
           rm eoir_data.zip
 
       - name: Show directory structure
