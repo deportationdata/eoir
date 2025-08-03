@@ -11,7 +11,7 @@ charges_tbl <-
 
 charges_tbl <-
   charges_tbl |> 
-  inner_join(categories_correct, by = "charge")
+  inner_join(categories, by = "charge")
 
 charges_tbl <- 
   charges_tbl |> 

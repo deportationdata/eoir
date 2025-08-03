@@ -104,3 +104,8 @@ arrow::write_feather(
   cases,
   "outputs/cases.feather"
 )
+
+arrow::write_feather(cases, "outputs/cases.feather")
+writexl::write_xlsx(cases, "outputs/cases.xlsx")
+haven::write_dta(cases, "outputs/cases.dta")
+haven::write_sav(cases, "outputs/cases.sav")

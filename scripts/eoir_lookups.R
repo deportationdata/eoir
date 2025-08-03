@@ -2,7 +2,7 @@ library(tidyverse)
 library(tidylog)
 
 court_decision_lookup <- 
-  data.table::fread("inputs/Lookup/tblLookupCourtDecision.csv") |> 
+  data.table::fread("inputs/tblLookupCourtDecision.csv") |> 
   as_tibble()
 
 dec_code_lookup <- 
@@ -24,7 +24,7 @@ rm(list=ls())
 gc()
 
 court_decision_lookup <- 
-  data.table::fread("inputs/Lookup/tblLookupCourtDecision.csv") |> 
+  data.table::fread("inputs/tblLookupCourtDecision.csv") |> 
   as_tibble()
 
 other_comp_code_lookup <- 
