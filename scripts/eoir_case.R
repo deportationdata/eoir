@@ -2,10 +2,8 @@ library(tidyverse)
 library(tidylog)
 library(data.table)
 
-setwd("~/Library/CloudStorage/Box-Box/deportationdata/")
-
 cases_tbl <- data.table::fread(
-  "eoir/courts/070125/A_TblCase.csv",
+  "inputs/A_TblCase.csv",
   sep          = "\t",
   quote        = "",                   
   header       = TRUE,
@@ -76,7 +74,7 @@ cases_tbl <-
 
 arrow::write_feather(
   cases_tbl,
-  "~/github/deportation-cleaning/tmp/cases.feather"
+  "outputs/cases_tmp.feather"
 )
 
 

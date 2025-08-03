@@ -2,8 +2,6 @@
 library(tidyverse)
 library(tidylog)
 
-setwd("~/Library/CloudStorage/Box-Box/deportationdata/")
-
 proceeding_col_types <- c(
   IDNPROCEEDING               = "integer",
   IDNCASE                     = "integer",
@@ -46,7 +44,7 @@ proceeding_col_types <- c(
 )
 
 proceeding_tbl <- 
-  data.table::fread("eoir/courts/070125/B_TblProceeding.csv",
+  data.table::fread("inputs/B_TblProceeding.csv",
     sep          = "\t",
     quote        = "",                   
     header       = TRUE,
@@ -110,6 +108,6 @@ cases_from_proceedings <-
 
 arrow::write_feather(
   cases_from_proceedings,
-  "~/github/deportation-cleaning/tmp/cases_from_proceedings.feather"
+  "outputs/cases_from_proceedings.feather"
 )
 

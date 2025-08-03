@@ -2,10 +2,10 @@ library(tidyverse)
 library(tidylog)
 
 cases <- 
-  arrow::read_feather("~/github/deportation-cleaning/tmp/cases_from_proceedings.feather")
+  arrow::read_feather("outputs/cases_from_proceedings.feather")
 
 custodyhistory_by_case <- 
-  arrow::read_feather("~/github/deportation-cleaning/tmp/custodyhistory_cases.feather")
+  arrow::read_feather("outputs/custodyhistory_cases.feather")
 
 cases <- 
   cases |> 
@@ -14,7 +14,7 @@ cases <-
 rm(custodyhistory_by_case)
 gc()
 
-case_tbl <- arrow::read_feather("~/github/deportation-cleaning/tmp/cases.feather")
+case_tbl <- arrow::read_feather("outputs/cases_tmp.feather")
 
 case_tbl <- 
   case_tbl |> 
@@ -31,7 +31,7 @@ rm(case_tbl)
 gc()
 
 appeals_by_case <- 
-  arrow::read_feather("~/github/deportation-cleaning/tmp/appeals_cases.feather")
+  arrow::read_feather("outputs/appeals_cases.feather")
 
 cases <-
   cases |> 
@@ -53,7 +53,7 @@ cases <-
   )
 
 court_applications_by_case <- 
-  arrow::read_feather("~/github/deportation-cleaning/tmp/court_applications_cases.feather") 
+  arrow::read_feather("outputs/court_applications_cases.feather") 
 
 cases <-
   cases |> 
@@ -63,7 +63,7 @@ rm(court_applications_by_case)
 gc()
 
 associated_bond_by_case <- 
-  arrow::read_feather("~/github/deportation-cleaning/tmp/associated_bond_cases.feather")
+  arrow::read_feather("outputs/associated_bond_cases.feather")
 
 cases <-
   cases |> 
@@ -72,17 +72,17 @@ cases <-
 rm(associated_bond_by_case)
 gc()
 
-charges_by_case <- arrow::read_feather("~/github/deportation-cleaning/tmp/charges_cases.feather")
+charges_by_case <- arrow::read_feather("outputs/charges_cases.feather")
 
 cases <- 
   cases |> 
   left_join(charges_by_case, by = "idncase")
 
 other_comp_code_lookup <- 
-  arrow::read_feather("~/github/deportation-cleaning/tmp/other_comp_code_lookup.feather")
+  arrow::read_feather("outputs/other_comp_code_lookup.feather")
 
 dec_code_lookup <- 
-  arrow::read_feather("~/github/deportation-cleaning/tmp/dec_code_lookup.feather")
+  arrow::read_feather("outputs/dec_code_lookup.feather")
 
 cases <- 
   cases |> 
@@ -102,5 +102,5 @@ cases <-
 
 arrow::write_feather(
   cases,
-  "~/github/deportation-cleaning/tmp/cases_joined.feather"
+  "outputs/cases.feather"
 )

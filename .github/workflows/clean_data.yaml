@@ -1,0 +1,48 @@
+name: Download and release EOIR data
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  run-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+
+      - uses: r-lib/actions/setup-renv@v2
+
+      - name: Download and unzip data
+        run: |
+          mkdir -p inputs
+          wget -O eoir_data.zip "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip"
+          unzip eoir_data.zip "*/EOIR Case Data/*" -d inputs
+          rm eoir_data.zip
+      
+      - name: Process data
+        run: |
+          mkdir -p outputs
+          Rscript scripts/eoir_appeals.R
+          Rscript scripts/eoir_associated_bond.R
+          Rscript scripts/eoir_case.R
+          Rscript scripts/eoir_case_applications.R
+          Rscript scripts/eoir_custody_history.R
+          Rscript scripts/eoir_looksups.R
+          Rscript scripts/eoir_proceeding.R
+          Rscript scripts/eoir_proceedings_charges.R
+          Rscript scripts/eoir_case_joins.R
+
+      - uses: ncipollo/release-action@v1
+        with:
+          tag: auto-${{ github.sha }}
+          name: "EOIR cases table release ${{ github.sha }}"
+          artifacts: |
+            outputs/cases.feather
+          generateReleaseNotes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

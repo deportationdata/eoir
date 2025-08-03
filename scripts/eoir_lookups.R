@@ -1,10 +1,8 @@
 library(tidyverse)
 library(tidylog)
 
-setwd("~/Library/CloudStorage/Box-Box/deportationdata/")
-
 court_decision_lookup <- 
-  data.table::fread("eoir/courts/070125/tblLookupCourtDecision.csv") |> 
+  data.table::fread("inputs/Lookup/tblLookupCourtDecision.csv") |> 
   as_tibble()
 
 dec_code_lookup <- 
@@ -19,14 +17,14 @@ dec_code_lookup <-
     
 arrow::write_feather(
   dec_code_lookup,
-  "~/github/deportation-cleaning/tmp/dec_code_lookup.feather"
+  "outputs/dec_code_lookup.feather"
 )
 
 rm(list=ls())
 gc()
 
 court_decision_lookup <- 
-  data.table::fread("eoir/courts/070125/tblLookupCourtDecision.csv") |> 
+  data.table::fread("inputs/Lookup/tblLookupCourtDecision.csv") |> 
   as_tibble()
 
 other_comp_code_lookup <- 
@@ -41,5 +39,5 @@ other_comp_code_lookup <-
     
 arrow::write_feather(
   other_comp_code_lookup,
-  "~/github/deportation-cleaning/tmp/other_comp_code_lookup.feather"
+  "outputs/other_comp_code_lookup.feather"
 )
