@@ -21,8 +21,13 @@ jobs:
         run: |
           mkdir -p inputs
           wget -O eoir_data.zip "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip"
-          unzip eoir_data.zip "*/EOIR Case Data/*" -d inputs
+          unzip -j eoir_data.zip "FOIA_TRAC_Report */*" -d inputs
           rm eoir_data.zip
+
+      - name: Show directory structure
+        run: |
+          echo "Directory structure:"
+          ls -R .
       
       - name: Process data
         run: |
