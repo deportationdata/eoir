@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   run-and-release:
+    timeout-minutes: 75
     runs-on: ubuntu-latest
 
     steps:
