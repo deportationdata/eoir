@@ -1,9 +1,7 @@
 library(tidyverse)
 library(tidylog)
 
-setwd("~/Library/CloudStorage/Box-Box/deportationdata/")
-
-associated_bond_tbl <- data.table::fread("eoir/courts/070125/D_TblAssociatedBond.csv", fill = 33)
+associated_bond_tbl <- data.table::fread("inputs/D_TblAssociatedBond.csv", fill = 33)
 
 associated_bond_tbl <- 
   associated_bond_tbl |> 
@@ -29,5 +27,5 @@ associated_bond_by_case <-
 
 arrow::write_feather(
   associated_bond_by_case,
-  "~/github/deportation-cleaning/tmp/associated_bond_cases.feather"
+  "outputs/associated_bond_cases.feather"
 )

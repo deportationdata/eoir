@@ -1,11 +1,9 @@
 library(tidyverse)
 library(tidylog)
 
-setwd("~/Library/CloudStorage/Box-Box/deportationdata/")
+charges_tbl <- data.table::fread("inputs/B_TblProceedCharges.csv", fill = 6) |> as_tibble()
 
-charges_tbl <- data.table::fread("eoir/courts/070125/B_TblProceedCharges.csv", fill = 6) |> as_tibble()
-
-categories_correct <- readxl::read_excel("~/github/deportation-cleaning/CORRECT charge categories.xlsx")
+source("scripts/categories_df.R")
 
 charges_tbl <- 
   charges_tbl |> 
@@ -50,5 +48,5 @@ charges_by_case <-
 
 arrow::write_feather(
   charges_by_case,
-  "~/github/deportation-cleaning/tmp/charges_cases.feather"
+  "outputs/charges_cases.feather"
 )

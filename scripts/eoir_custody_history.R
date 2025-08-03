@@ -2,9 +2,7 @@
 library(tidyverse)
 library(tidylog)
 
-setwd("~/Library/CloudStorage/Box-Box/deportationdata/")
-
-custodyhistory_tbl <- data.table::fread("eoir/courts/070125/tbl_CustodyHistory.csv") |> as_tibble()
+custodyhistory_tbl <- data.table::fread("inputs/tbl_CustodyHistory.csv") |> as_tibble()
 
 custodyhistory_by_case <- 
   custodyhistory_tbl |> 
@@ -50,6 +48,6 @@ custodyhistory_by_case <-
 
 arrow::write_feather(
   custodyhistory_by_case,
-  "~/github/deportation-cleaning/tmp/custodyhistory_cases.feather"
+  "outputs/custodyhistory_cases.feather"
 )
 
