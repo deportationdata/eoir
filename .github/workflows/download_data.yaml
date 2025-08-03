@@ -8,11 +8,14 @@ on:
 jobs:
   download-data:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Add this to allow pushing
     
     steps:
     - uses: actions/checkout@v3
       with:
         lfs: true
+        token: ${{ secrets.GITHUB_TOKEN }}  # Use GITHUB_TOKEN explicitly
     
     - name: Install git-lfs
       run: |
@@ -36,5 +39,7 @@ jobs:
         git config --global user.name 'GitHub Actions'
         git config --global user.email 'actions@github.com'
         git add data/input/ .gitattributes
-        git commit -m "Update EOIR Case Data"
+        git commit -m "Update EOIR Case Data" || exit 0
         git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
