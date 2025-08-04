@@ -51,9 +51,6 @@ jobs:
           name: "EOIR cases table release ${{ github.sha }}"
           artifacts: |
             outputs/cases.feather
-            outputs/cases.xlsx
-            outputs/cases.dta
-            outputs/cases.sav
           generateReleaseNotes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

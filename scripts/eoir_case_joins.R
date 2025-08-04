@@ -108,16 +108,16 @@ arrow::write_feather(
 
 
 arrow::write_feather(cases, "outputs/cases.feather")
-haven::write_dta(cases, "outputs/cases.dta")
-haven::write_sav(cases, "outputs/cases.sav")
+# haven::write_dta(cases, "outputs/cases.dta")
+# haven::write_sav(cases, "outputs/cases.sav")
 
-# split into sheets for Excel (max 1 million rows per sheet)
-sheet_size <- 1e6
-n_sheets <- ceiling(nrow(cases) / sheet_size)
+# # split into sheets for Excel (max 1 million rows per sheet)
+# sheet_size <- 1e6
+# n_sheets <- ceiling(nrow(cases) / sheet_size)
 
-cases |>
-  mutate(.sheet_id = rep(seq_len(n_sheets), each = sheet_size, length.out = n())) |>
-    #  gl(n_sheets, sheet_size, n(), labels = FALSE)) |>
-  group_split(.sheet_id, .keep = FALSE) |>
-  set_names(sprintf("%s_%02d", "Sheet", seq_len(n_sheets))) |>
-  writexl::write_xlsx("outputs/cases.xlsx")
+# cases |>
+#   mutate(.sheet_id = rep(seq_len(n_sheets), each = sheet_size, length.out = n())) |>
+#     #  gl(n_sheets, sheet_size, n(), labels = FALSE)) |>
+#   group_split(.sheet_id, .keep = FALSE) |>
+#   set_names(sprintf("%s_%02d", "Sheet", seq_len(n_sheets))) |>
+#   writexl::write_xlsx("outputs/cases.xlsx")
