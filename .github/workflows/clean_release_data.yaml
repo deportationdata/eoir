@@ -8,7 +8,6 @@ permissions:
 
 jobs:
   run-and-release:
-    timeout-minutes: 75
     runs-on: large-runner
 
     steps:
@@ -52,6 +51,9 @@ jobs:
           name: "EOIR cases table release ${{ github.sha }}"
           artifacts: |
             outputs/cases.feather
+            outputs/cases.xlsx
+            outputs/cases.dta
+            outputs/cases.sav
           generateReleaseNotes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
