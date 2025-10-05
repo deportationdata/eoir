@@ -42,4 +42,4 @@ msgs |>
   mutate(
     table = str_remove(basename(table), "\\.csv$")
   ) |>
-  write_csv("data/missingness_by_table.csv")
+  write_csv("data/missingness_by_field.csv")
