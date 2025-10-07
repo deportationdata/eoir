@@ -7108,7 +7108,7 @@ O,NA,court_decision,inputs/Lookup/tblLookupCourtDecision.csv
 C,NA,court_decision,inputs/Lookup/tblLookupCourtDecision.csv
 C,NA,court_decision,inputs/Lookup/tblLookupCourtDecision.csv
 O,NA,court_decision,inputs/Lookup/tblLookupCourtDecision.csv
-O," 00:00:00.000
+O,"0.000	2003-10-01 00:00:00.000
 44	CFR	A	Administrative Closing - Other	O	",court_decision,inputs/Lookup/tblLookupCourtDecision.csv
 NA,NA,court_decision,inputs/Lookup/tblLookupCourtDecision.csv
 "2024-01-09 10:18:43.000",NA,court_decision,inputs/Lookup/tblLookupCourtDecision.csv
