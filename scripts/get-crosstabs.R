@@ -235,8 +235,8 @@ schema <-
   schema |>
   mutate(
     type = case_when(
-      type %in% c("char", "varchar") ~ "String",
-      type %in% c("int") ~ "Integer",
+      type %in% c("char", "varchar", "ntext", "uniqueidentifier") ~ "String",
+      type %in% c("int", "money") ~ "Numeric",
       type %in% "bit" ~ "Boolean",
       type %in% "datetime" ~ "Date",
       TRUE ~ "Other"
