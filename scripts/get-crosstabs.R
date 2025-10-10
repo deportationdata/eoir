@@ -50,7 +50,8 @@ msgs |>
   ) |>
   write_csv("data/missingness_by_field.csv")
 
-tbls |>
+freq_tbl <-
+  tbls |>
   bind_rows(.id = "table") |>
   mutate(
     table = str_remove(basename(table), "\\.csv$")
@@ -65,8 +66,10 @@ tbls |>
     pct = n / sum(n)
   ) |>
   ungroup() |>
-  arrange(name, desc(n), value) |>
-  write_csv("data/value_frequencies_by_field.csv")
+  arrange(name, desc(n), value)
+
+
+write_csv(freq_tbl, "data/value_frequencies_by_field.csv")
 
 lookup_tbls <- list.files("inputs/Lookup", recursive = TRUE, full.names = TRUE)
 
@@ -212,3 +215,36 @@ lookup_tbl <-
   )
 
 write_csv(lookup_tbl, "data/lookup_tables_combined.csv")
+
+
+# freq_tbl
+#
+# lookup_tbl |> distinct(name)
+# freq_tbl |> mutate(name = str_to_lower(name)) |> distinct(name)
+
+schema <- readr::read_table(
+  file = "inputs/Schema_Related/EOIRDB_Schema.csv",
+  # Treat any run of whitespace (tabs/spaces) as a delimiter:
+  col_names = c("table_name", "field_name", "type", "nullable"),
+  skip = 1, # skip the header row you pasted
+  col_types = cols(.default = col_character()),
+  progress = FALSE
+)
+
+schema <-
+  schema |>
+  mutate(
+    type = case_when(
+      name %in% c("char", "varchar") ~ "String",
+      name %in% c("int") ~ "Integer",
+      name %in% "bit" ~ "Boolean",
+      name %in% "datetime" ~ "Date",
+      TRUE ~ "Other"
+    ),
+    name = field_name,
+    table = table_name,
+    .keep = "unused"
+  ) |>
+  select(-`Constraints  (PK/NULL)`)
+
+write_csv(schema, "data/variable_types.csv")
