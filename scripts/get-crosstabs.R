@@ -235,16 +235,16 @@ schema <-
   schema |>
   mutate(
     type = case_when(
-      name %in% c("char", "varchar") ~ "String",
-      name %in% c("int") ~ "Integer",
-      name %in% "bit" ~ "Boolean",
-      name %in% "datetime" ~ "Date",
+      type %in% c("char", "varchar") ~ "String",
+      type %in% c("int") ~ "Integer",
+      type %in% "bit" ~ "Boolean",
+      type %in% "datetime" ~ "Date",
       TRUE ~ "Other"
     ),
     name = field_name,
     table = table_name,
     .keep = "unused"
   ) |>
-  select(-`Constraints  (PK/NULL)`)
+  select(-nullable)
 
 write_csv(schema, "data/variable_types.csv")
