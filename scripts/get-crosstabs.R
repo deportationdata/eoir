@@ -195,7 +195,6 @@ lookup_tbl <-
       # bail if we don't have a plausible pair
       if (is.na(code_col) || is.na(desc_col)) {
         return(tibble::tibble(
-          table = basename(.x),
           value = character(),
           description = character(),
           name = character()
@@ -211,8 +210,9 @@ lookup_tbl <-
           name = varname
         )
     },
-    .id = "table"
-  )
+    .id = "table_filename"
+  ) |>
+  mutate(table = basename(table_filename) |> tools::file_path_sans_ext())
 
 write_csv(lookup_tbl, "data/lookup_tables_combined.csv")
 
