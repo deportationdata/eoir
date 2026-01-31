@@ -3,7 +3,7 @@ library(tidylog)
 library(data.table)
 
 cases_tbl <- data.table::fread(
-  "inputs/EOIR Case Data/A_TblCase.csv",
+  "inputs/A_TblCase.csv",
   sep = "\t",
   quote = "",
   header = TRUE,
