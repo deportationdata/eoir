@@ -1,28 +1,30 @@
-
 library(tidyverse)
 library(tidylog)
 
-custodyhistory_tbl <- data.table::fread("inputs/tbl_CustodyHistory.csv") |> as_tibble()
+custodyhistory_tbl <- data.table::fread(
+  "inputs/tbl_CustodyHistory.csv"
+) |>
+  as_tibble()
 
-custodyhistory_by_case <- 
-  custodyhistory_tbl |> 
-  janitor::clean_names() |> 
+custodyhistory_by_case <-
+  custodyhistory_tbl |>
+  janitor::clean_names() |>
   # convert to date to remove unused time information
   mutate(
     datdetained = as.Date(datdetained), # no changes to missing
-    datreleased = as.Date(datreleased)  # no changes to missing
-  ) |> 
+    datreleased = as.Date(datreleased) # no changes to missing
+  ) |>
   arrange(idncase, datdetained)
 
 rm(custodyhistory_tbl)
 gc()
 
-# rewrite in data.table 
+# rewrite in data.table
 library(data.table)
 setDT(custodyhistory_by_case)
-custodyhistory_by_case <- 
-  custodyhistory_by_case[
-    , {
+custodyhistory_by_case <-
+  custodyhistory_by_case[,
+    {
       det_max <- max(datdetained, na.rm = TRUE)
       rel_max <- max(datreleased, na.rm = TRUE)
       first_det <- min(datdetained, na.rm = TRUE)
@@ -30,7 +32,9 @@ custodyhistory_by_case <-
       # Convert rel_max = -Inf to NA
       rel_max <- if (is.finite(rel_max)) rel_max else as.Date(NA)
 
-      last_release <- if (is.finite(det_max) && any(datreleased < det_max, na.rm = TRUE)) {
+      last_release <- if (
+        is.finite(det_max) && any(datreleased < det_max, na.rm = TRUE)
+      ) {
         NA_Date_
       } else {
         rel_max
@@ -50,4 +54,3 @@ arrow::write_feather(
   custodyhistory_by_case,
   "outputs/custodyhistory_cases.feather"
 )
-

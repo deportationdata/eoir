@@ -24,7 +24,7 @@ jobs:
           
       - name: Unzip data
         run: |
-          unzip -j eoir_data.zip "EOIR Case Data */*" -d inputs
+          unzip -j eoir_data.zip -d inputs
           rm eoir_data.zip
 
       - name: Show directory structure
