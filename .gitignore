@@ -51,3 +51,5 @@ rsconnect/
 # Input files
 inputs/
 
+# ignore tmp directory (intermediate files only)
+/tmp
