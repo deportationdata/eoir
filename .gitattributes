@@ -1,1 +1,2 @@
 data/missingness_by_table.csv filter=lfs diff=lfs merge=lfs -text
+*.feather filter=lfs diff=lfs merge=lfs -text
