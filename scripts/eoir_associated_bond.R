@@ -6,6 +6,14 @@ associated_bond_tbl <- data.table::fread(
   fill = 33
 )
 
+associated_bond_count <-
+  read_lines("inputs/Count.txt") |>
+  keep(~ str_detect(., "^D_TblAssociatedBond\\t")) |>
+  str_extract("\\d+") |>
+  as.integer()
+
+stopifnot(abs(nrow(associated_bond_tbl) - associated_bond_count) < 5)
+
 associated_bond_tbl <-
   associated_bond_tbl |>
   janitor::clean_names() |>

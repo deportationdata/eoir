@@ -3,6 +3,14 @@ library(tidylog)
 
 appeals_tbl <- data.table::fread("inputs/tblAppeal.csv")
 
+appeals_count <-
+  read_lines("inputs/Count.txt") |>
+  keep(~ str_detect(., "^tblAppeal\\t")) |>
+  str_extract("\\d+") |>
+  as.integer()
+
+stopifnot(abs(nrow(appeals_tbl) - appeals_count) < 5)
+
 appeals_tbl <-
   appeals_tbl |>
   janitor::clean_names() |>

@@ -6,6 +6,14 @@ court_applications_tbl <- data.table::fread(
   fill = 7
 )
 
+court_applications_count <-
+  read_lines("inputs/Count.txt") |>
+  keep(~ str_detect(., "^tbl_Court_Appln\\t")) |>
+  str_extract("\\d+") |>
+  as.integer()
+
+stopifnot(nrow(court_applications_tbl) == court_applications_count)
+
 court_applications_tbl <-
   court_applications_tbl |>
   janitor::clean_names()
