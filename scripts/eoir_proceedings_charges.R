@@ -7,6 +7,14 @@ charges_tbl <- data.table::fread(
 ) |>
   as_tibble()
 
+proceedingscharges_count <-
+  read_lines("inputs/Count.txt") |>
+  keep(~ str_detect(., "^B_TblProceedCharges\\t")) |>
+  str_extract("\\d+") |>
+  as.integer()
+
+stopifnot(abs(nrow(charges_tbl) - proceedingscharges_count) < 5)
+
 source("scripts/categories_df.R")
 
 charges_tbl <-

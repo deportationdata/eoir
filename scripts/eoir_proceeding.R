@@ -55,6 +55,14 @@ proceeding_tbl <-
   ) |>
   as_tibble()
 
+proceeding_count <-
+  read_lines("inputs/Count.txt") |>
+  keep(~ str_detect(., "^B_TblProceeding\\t")) |>
+  str_extract("\\d+") |>
+  as.integer()
+
+stopifnot(abs(nrow(proceeding_tbl) - proceeding_count) < 5)
+
 cases_from_proceedings <-
   proceeding_tbl |>
   janitor::clean_names() |>
