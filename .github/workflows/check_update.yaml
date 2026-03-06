@@ -1,0 +1,65 @@
+name: Check for EOIR data update
+
+on:
+  schedule:
+    - cron: '0 13 * * *'   # 9:00am ET
+    - cron: '0 16 * * *'   # 12:00pm ET
+    - cron: '30 22 * * *'  # 6:30pm ET
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Last-Modified and ETag headers
+        id: check
+        run: |
+          HEADERS=$(curl -sI "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip")
+
+          LAST_MODIFIED=$(echo "$HEADERS" | grep -i "^last-modified:" | tr -d '\r' | cut -d' ' -f2-)
+          ETAG=$(echo "$HEADERS" | grep -i "^etag:" | tr -d '\r' | cut -d' ' -f2-)
+
+          echo "Remote Last-Modified: $LAST_MODIFIED"
+          echo "Remote ETag:          $ETAG"
+
+          STORED_LAST_MODIFIED=""
+          STORED_ETAG=""
+          if [ -f .last_modified ]; then
+            STORED_LAST_MODIFIED=$(sed -n '1p' .last_modified)
+            STORED_ETAG=$(sed -n '2p' .last_modified)
+          fi
+
+          echo "Stored Last-Modified: $STORED_LAST_MODIFIED"
+          echo "Stored ETag:          $STORED_ETAG"
+
+          if [ "$LAST_MODIFIED" != "$STORED_LAST_MODIFIED" ] || [ "$ETAG" != "$STORED_ETAG" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            printf '%s\n%s\n' "$LAST_MODIFIED" "$ETAG" > .last_modified
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No update detected — skipping download."
+          fi
+
+      - name: Commit updated metadata
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .last_modified
+          git commit -m "chore: record new EOIR data release [skip ci]"
+          git push
+
+  process:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    uses: ./.github/workflows/clean_release_data.yaml
+    secrets: inherit
