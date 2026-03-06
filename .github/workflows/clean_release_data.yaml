@@ -1,7 +1,8 @@
 name: Download and release EOIR data
 
 on:
-  push:
+  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: write
