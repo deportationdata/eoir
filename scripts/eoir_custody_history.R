@@ -6,6 +6,14 @@ custodyhistory_tbl <- data.table::fread(
 ) |>
   as_tibble()
 
+custodyhistory_count <-
+  read_lines("inputs/Count.txt") |>
+  keep(~ str_detect(., "^tbl_CustodyHistory\\t")) |>
+  str_extract("\\d+") |>
+  as.integer()
+
+stopifnot(nrow(custodyhistory_tbl) == custodyhistory_count)
+
 custodyhistory_by_case <-
   custodyhistory_tbl |>
   janitor::clean_names() |>

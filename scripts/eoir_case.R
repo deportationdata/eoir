@@ -13,6 +13,14 @@ cases_tbl <- data.table::fread(
   showProgress = FALSE
 )
 
+case_count <-
+  read_lines("inputs/Count.txt") |>
+  keep(~ str_detect(., "^A_TblCase\\t")) |>
+  str_extract("\\d+") |>
+  as.integer()
+
+stopifnot(nrow(cases_tbl) == case_count)
+
 cases_tbl <-
   as_tibble(cases_tbl) |>
   # remove extra columns created because of malformed rows
