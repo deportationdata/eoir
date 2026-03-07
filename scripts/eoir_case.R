@@ -87,6 +87,8 @@ cases_tbl <-
       release_month,
       inmate_housing,
       updated_state,
+      updated_city,
+      alien_city,
       address_changedon,
       zbond_mrg_flag,
       dco_location,
@@ -94,8 +96,10 @@ cases_tbl <-
     )
   ) |>
   mutate(
-    e_28_date = as.Date(e_28_date)
-  )
+    e_28_date  = as.Date(e_28_date),
+    birth_year = year(c_birthdate)
+  ) |>
+  select(-c_birthdate)
 
 arrow::write_feather(
   cases_tbl,
