@@ -109,6 +109,43 @@ cases <-
 rm(case_tbl)
 gc()
 
+# --- ZIP code → city + county (Census/USPS) ---
+zcta_county_url  <- "https://www2.census.gov/geo/docs/maps-data/data/rel2020/zcta520/tab20_zcta520_county20_natl.txt"
+zcta_county_path <- "inputs/tab20_zcta520_county20_natl.txt"
+if (!file.exists(zcta_county_path)) {
+  download.file(zcta_county_url, zcta_county_path)
+}
+zcta_county <- read_delim(
+  zcta_county_path, delim = "|",
+  col_types = cols(.default = col_character(), AREALAND_PART = col_double())
+) |>
+  janitor::clean_names() |>
+  group_by(geoid_zcta5_20) |>
+  slice_max(arealand_part, n = 1, with_ties = FALSE) |>
+  ungroup() |>
+  select(
+    alien_zipcode = geoid_zcta5_20,
+    zip_county    = namelsad_county_20
+  )
+
+# City name from Missouri Census Data Center geocorr file (USPS ZIPName field)
+zip_city <- read_csv(
+  "inputs/geocorr2022_2606509064.csv",
+  skip = 2,
+  col_names = c("zcta", "state", "place", "stab", "PlaceName", "ZIPName", "pop20", "afact"),
+  col_types = cols(.default = col_character(), pop20 = col_double(), afact = col_double())
+) |>
+  filter(!is.na(zcta)) |>
+  distinct(zcta, ZIPName) |>
+  mutate(zip_city = str_remove(ZIPName, " [(]PO boxes[)]$") |> str_remove(", [A-Z]{2}$")) |>
+  select(alien_zipcode = zcta, zip_city)
+
+zip_lookup <- left_join(zip_city, zcta_county, by = "alien_zipcode")
+
+cases <- cases |>
+  left_join(zip_lookup, by = "alien_zipcode") |>
+  select(-alien_zipcode)
+
 appeals_by_case <-
   arrow::read_feather("tmp/appeals_cases.feather")
 
