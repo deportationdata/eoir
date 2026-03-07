@@ -2,7 +2,7 @@ library(tidyverse)
 library(tidylog)
 
 court_decision_lookup <-
-  data.table::fread("inputs/Lookup/tblLookupCourtDecision.csv") |>
+  data.table::fread("inputs/tblLookupCourtDecision.csv") |>
   as_tibble()
 
 dec_code_lookup <-
@@ -17,14 +17,14 @@ dec_code_lookup <-
 
 arrow::write_feather(
   dec_code_lookup,
-  "outputs/dec_code_lookup.feather"
+  "tmp/dec_code_lookup.feather"
 )
 
 rm(list = ls())
 gc()
 
 court_decision_lookup <-
-  data.table::fread("inputs/Lookup/tblLookupCourtDecision.csv") |>
+  data.table::fread("inputs/tblLookupCourtDecision.csv") |>
   as_tibble()
 
 other_comp_code_lookup <-
@@ -39,5 +39,5 @@ other_comp_code_lookup <-
 
 arrow::write_feather(
   other_comp_code_lookup,
-  "outputs/other_comp_code_lookup.feather"
+  "tmp/other_comp_code_lookup.feather"
 )

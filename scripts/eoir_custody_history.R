@@ -60,5 +60,5 @@ custodyhistory_by_case <-
 
 arrow::write_feather(
   custodyhistory_by_case,
-  "outputs/custodyhistory_cases.feather"
+  "tmp/custodyhistory_cases.feather"
 )

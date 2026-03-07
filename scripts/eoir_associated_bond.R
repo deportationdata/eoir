@@ -29,7 +29,7 @@ setDT(associated_bond_tbl)
 associated_bond_by_case <-
   associated_bond_tbl[,
     .(
-      lastbond_comp_date = last(comp_date),
+      lastbond_comp_date = last(bond_comp_date),
       lastbond_hear_req_date = last(bond_hear_req_date),
       lastdec = last(dec),
       lastinitial_bond = last(initial_bond),
@@ -41,5 +41,5 @@ associated_bond_by_case <-
 
 arrow::write_feather(
   associated_bond_by_case,
-  "outputs/associated_bond_cases.feather"
+  "tmp/associated_bond_cases.feather"
 )

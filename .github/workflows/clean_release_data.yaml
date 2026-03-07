@@ -1,4 +1,4 @@
-name: Download and release EOIR data
+name: Download and process EOIR data
 
 on:
   workflow_call:
@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   run-and-release:
@@ -22,17 +23,12 @@ jobs:
         run: |
           mkdir -p inputs
           wget -O eoir_data.zip "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip"
-          
+
       - name: Unzip data
         run: |
           unzip -j eoir_data.zip -d inputs
           rm eoir_data.zip
 
-      - name: Show directory structure
-        run: |
-          echo "Directory structure:"
-          ls -R .
-      
       - name: Process data
         run: |
           mkdir -p outputs
@@ -46,12 +42,32 @@ jobs:
           Rscript scripts/eoir_proceedings_charges.R
           Rscript scripts/eoir_case_joins.R
 
-      - uses: ncipollo/release-action@v1
-        with:
-          tag: auto-${{ github.sha }}
-          name: "EOIR cases table release ${{ github.sha }}"
-          artifacts: |
-            outputs/cases.feather
-          generateReleaseNotes: true
+      - name: Commit and push to branch
+        id: commit
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git checkout -b eoir-update-$(date +%Y-%m-%d)
+          git add outputs/cases.feather
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            echo "new_data=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "Update cases.feather [skip ci]"
+            git pull --rebase origin main
+            git push --set-upstream origin HEAD
+            echo "new_data=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create pull request
+        if: steps.commit.outputs.new_data == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --title "Data update $(date +%Y-%m-%d)" \
+            --body "Automated update: new EOIR data detected and processed." \
+            --reviewer graemeblair \
+            --base main
