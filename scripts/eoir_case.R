@@ -2,16 +2,17 @@ library(tidyverse)
 library(tidylog)
 library(data.table)
 
-cases_tbl <- data.table::fread(
-  "inputs/A_TblCase.csv",
-  sep = "\t",
-  quote = "",
-  header = TRUE,
-  na.strings = c("", "NA", "N/A", "NULL"),
-  colClasses = "character",
-  fill = 47,
-  showProgress = FALSE
-)
+cases_tbl <-
+  data.table::fread(
+    "inputs/A_TblCase.csv",
+    sep = "\t",
+    quote = "",
+    header = TRUE,
+    na.strings = c("", "NA", "N/A", "NULL"),
+    colClasses = "character",
+    fill = 47,
+    showProgress = FALSE
+  )
 
 case_count <-
   read_lines("inputs/Count.txt") |>
@@ -98,5 +99,5 @@ cases_tbl <-
 
 arrow::write_feather(
   cases_tbl,
-  "outputs/cases_tmp.feather"
+  "tmp/cases_tmp.feather"
 )

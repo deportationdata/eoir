@@ -43,5 +43,5 @@ appeals_by_case <-
 
 arrow::write_feather(
   appeals_by_case,
-  "outputs/appeals_cases.feather"
+  "tmp/appeals_cases.feather"
 )

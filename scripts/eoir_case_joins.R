@@ -1,11 +1,90 @@
 library(tidyverse)
 library(tidylog)
 
+tblLanguage <- read_delim(
+  "inputs/tblLanguage.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names()
+tblLookup_CasePriority <- read_delim(
+  "inputs/tblLookup_CasePriority.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names()
+tblLookupAlienNat <- read_delim(
+  "inputs/tblLookupAlienNat.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names()
+tbllookupAppealType <- read_delim(
+  "inputs/tbllookupAppealType.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names()
+tblLookupBaseCity <- read_delim(
+  "inputs/tblLookupBaseCity.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names()
+tbllookupCharges <- read_delim(
+  "inputs/tbllookupCharges.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names()
+tblLookupBIA <- read_delim(
+  "inputs/tblLookupBIA.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names()
+tblLookupBIADecision <- read_delim(
+  "inputs/tblLookupBIADecision.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names()
+tblLookupHloc <- read_delim(
+  "inputs/tblLookupHloc.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names() |>
+  filter(hearing_loc_code != "IAD") # non-unique key with 88 different names for IAD; skip this lookup for now
+tblLookupJudge <- read_delim(
+  "inputs/tblLookupJudge.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names()
+tblLookupNationality <- read_delim(
+  "inputs/tblLookupNationality.csv",
+  delim = "\t",
+  col_types = cols(.default = col_character()),
+  na = c("", "NA", "NULL")
+) |>
+  janitor::clean_names()
+
 cases <-
-  arrow::read_feather("outputs/cases_from_proceedings.feather")
+  arrow::read_feather("tmp/cases_from_proceedings.feather")
 
 custodyhistory_by_case <-
-  arrow::read_feather("outputs/custodyhistory_cases.feather")
+  arrow::read_feather("tmp/custodyhistory_cases.feather")
 
 cases <-
   cases |>
@@ -14,7 +93,7 @@ cases <-
 rm(custodyhistory_by_case)
 gc()
 
-case_tbl <- arrow::read_feather("outputs/cases_tmp.feather")
+case_tbl <- arrow::read_feather("tmp/cases_tmp.feather")
 
 case_tbl <-
   case_tbl |>
@@ -31,7 +110,7 @@ rm(case_tbl)
 gc()
 
 appeals_by_case <-
-  arrow::read_feather("outputs/appeals_cases.feather")
+  arrow::read_feather("tmp/appeals_cases.feather")
 
 cases <-
   cases |>
@@ -45,6 +124,9 @@ gc()
 cases <-
   cases |>
   mutate(
+    # keep the last IJ decision date
+    last_ij_decision = finalcompdate,
+    # combine to find the last completion date whether IJ or BIA
     finalcompdate = if_else(
       !is.na(datbiadec) & datbiadec > finalcompdate,
       datbiadec,
@@ -53,7 +135,7 @@ cases <-
   )
 
 court_applications_by_case <-
-  arrow::read_feather("outputs/court_applications_cases.feather")
+  arrow::read_feather("tmp/court_applications_cases.feather")
 
 cases <-
   cases |>
@@ -63,7 +145,7 @@ rm(court_applications_by_case)
 gc()
 
 associated_bond_by_case <-
-  arrow::read_feather("outputs/associated_bond_cases.feather")
+  arrow::read_feather("tmp/associated_bond_cases.feather")
 
 cases <-
   cases |>
@@ -72,17 +154,17 @@ cases <-
 rm(associated_bond_by_case)
 gc()
 
-charges_by_case <- arrow::read_feather("outputs/charges_cases.feather")
+charges_by_case <- arrow::read_feather("tmp/charges_cases.feather")
 
 cases <-
   cases |>
   left_join(charges_by_case, by = "idncase")
 
 other_comp_code_lookup <-
-  arrow::read_feather("outputs/other_comp_code_lookup.feather")
+  arrow::read_feather("tmp/other_comp_code_lookup.feather")
 
 dec_code_lookup <-
-  arrow::read_feather("outputs/dec_code_lookup.feather")
+  arrow::read_feather("tmp/dec_code_lookup.feather")
 
 cases <-
   cases |>
@@ -92,7 +174,7 @@ cases <-
 cases <-
   cases |>
   mutate(
-    outcome = case_when(outcome == "" ~ other_completion, TRUE ~ outcome),
+    outcome = coalesce(outcome, other_completion),
     relief = if_else(outcome == "Relief Granted", TRUE, FALSE),
     termination = if_else(
       outcome %in% c("Terminate", "Terminated"),
@@ -104,21 +186,101 @@ cases <-
     anyreliefapp = case_when(anyreliefapp != 1 ~ 0, TRUE ~ anyreliefapp)
   )
 
+# tblLanguage: lang -> str_code
+cases <- cases |>
+  left_join(
+    tblLanguage |>
+      select(str_code, str_description) |>
+      rename(lang_desc = str_description),
+    by = c("lang" = "str_code")
+  ) |>
+  select(-lang)
+
+# tblLookup_CasePriority: casepriority_code -> str_code
+cases <- cases |>
+  left_join(
+    tblLookup_CasePriority |>
+      select(str_code, str_description) |>
+      rename(casepriority_desc = str_description),
+    by = c("casepriority_code" = "str_code")
+  ) |>
+  select(-casepriority_code)
+
+# tblLookupAlienNat: nat -> str_code (tblLookupNationality also matches but this is more specific)
+cases <- cases |>
+  left_join(
+    tblLookupAlienNat |>
+      select(str_code, str_description) |>
+      rename(nat_desc = str_description),
+    by = c("nat" = "str_code")
+  ) |>
+  select(-nat)
+
+# tbllookupAppealType: lastappealtype -> str_appl_code
+cases <- cases |>
+  left_join(
+    tbllookupAppealType |>
+      select(str_appl_code, str_appl_description) |>
+      rename(lastappealtype_desc = str_appl_description),
+    by = c("lastappealtype" = "str_appl_code")
+  ) |>
+  select(-lastappealtype)
+
+# tblLookupBaseCity: firstcourt and finalcourt -> base_city_code (two joins)
+cases <-
+  cases |>
+  left_join(
+    tblLookupBaseCity |>
+      select(base_city_code, base_city_name) |>
+      rename(firstcourt_name = base_city_name),
+    by = c("firstcourt" = "base_city_code")
+  ) |>
+  left_join(
+    tblLookupBaseCity |>
+      select(base_city_code, base_city_name) |>
+      rename(finalcourt_name = base_city_name),
+    by = c("finalcourt" = "base_city_code")
+  ) |>
+  select(-firstcourt, -finalcourt)
+
+# tblLookupBIADecision: lastbiadecision -> str_code
+cases <- cases |>
+  left_join(
+    tblLookupBIADecision |>
+      select(str_code, str_description) |>
+      rename(lastbiadecision_desc = str_description),
+    by = c("lastbiadecision" = "str_code")
+  ) |>
+  select(-lastbiadecision)
+
+# tblLookupJudge: ij_code -> judge_code
+cases <-
+  cases |>
+  left_join(
+    tblLookupJudge |> select(judge_code, judge_name),
+    by = c("ij_code" = "judge_code")
+  ) |>
+  select(-ij_code)
+
+# tblLookupHloc: skipped — hearing_loc_code "IAD" maps to 88 different names (non-unique key)
+
 arrow::write_feather(
   cases,
   "outputs/cases.feather"
 )
 
-# haven::write_dta(cases, "outputs/cases.dta")
-# haven::write_sav(cases, "outputs/cases.sav")
+haven::write_dta(cases, "outputs/cases.dta")
+haven::write_sav(cases, "outputs/cases.sav")
 
-# # split into sheets for Excel (max 1 million rows per sheet)
-# sheet_size <- 1e6
-# n_sheets <- ceiling(nrow(cases) / sheet_size)
+# split into sheets for Excel (max 1 million rows per sheet)
+sheet_size <- 1e6
+n_sheets <- ceiling(nrow(cases) / sheet_size)
 
-# cases |>
-#   mutate(.sheet_id = rep(seq_len(n_sheets), each = sheet_size, length.out = n())) |>
-#     #  gl(n_sheets, sheet_size, n(), labels = FALSE)) |>
-#   group_split(.sheet_id, .keep = FALSE) |>
-#   set_names(sprintf("%s_%02d", "Sheet", seq_len(n_sheets))) |>
-#   writexl::write_xlsx("outputs/cases.xlsx")
+cases |>
+  mutate(
+    .sheet_id = rep(seq_len(n_sheets), each = sheet_size, length.out = n())
+  ) |>
+  #  gl(n_sheets, sheet_size, n(), labels = FALSE)) |>
+  group_split(.sheet_id, .keep = FALSE) |>
+  set_names(sprintf("%s_%02d", "Sheet", seq_len(n_sheets))) |>
+  writexl::write_xlsx("outputs/cases.xlsx")

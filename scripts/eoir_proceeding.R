@@ -119,5 +119,5 @@ cases_from_proceedings <-
 
 arrow::write_feather(
   cases_from_proceedings,
-  "outputs/cases_from_proceedings.feather"
+  "tmp/cases_from_proceedings.feather"
 )
