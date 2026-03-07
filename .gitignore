@@ -49,7 +49,7 @@ po/*~
 rsconnect/
 
 # Input files
-inputs-eoir/
+inputs_eoir/
 
 # ignore tmp directory (intermediate files only)
 /tmp
