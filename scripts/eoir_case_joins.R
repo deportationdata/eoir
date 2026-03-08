@@ -234,7 +234,7 @@ cases <-
   cases |>
   mutate(
     outcome = coalesce(outcome, other_completion),
-    relief = if_else(outcome == "Relief Granted", TRUE, FALSE),
+    relief = outcome %in% "Relief Granted",
     termination = if_else(
       outcome %in% c("Terminate", "Terminated"),
       TRUE,
