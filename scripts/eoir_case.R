@@ -4,7 +4,7 @@ library(data.table)
 
 cases_tbl <-
   data.table::fread(
-    "inputs/A_TblCase.csv",
+    "inputs_eoir/A_TblCase.csv",
     sep = "\t",
     quote = "",
     header = TRUE,
@@ -15,7 +15,7 @@ cases_tbl <-
   )
 
 case_count <-
-  read_lines("inputs/Count.txt") |>
+  read_lines("inputs_eoir/Count.txt") |>
   keep(~ str_detect(., "^A_TblCase\\t")) |>
   str_extract("\\d+") |>
   as.integer()
@@ -31,7 +31,6 @@ na_vals <- c("", "NA", "N/A", "NULL")
 
 spec <- cols(
   IDNCASE = col_integer(),
-  LPR = col_logical(),
   E_28_DATE = col_datetime(format = ""),
   LATEST_HEARING = col_datetime(format = ""),
   UP_BOND_DATE = col_datetime(format = ""),
@@ -39,33 +38,8 @@ spec <- cols(
   C_RELEASE_DATE = col_datetime(format = ""),
   ADDRESS_CHANGEDON = col_datetime(format = ""),
   DATE_DETAINED = col_datetime(format = ""),
-  DATE_RELEASED = col_datetime(format = ""),
-  DETENTION_DATE = col_datetime(format = ""),
-  C_BIRTHDATE = col_date(format = "")
+  DATE_RELEASED = col_datetime(format = "")
 )
-
-# dt_cols <- names(spec$cols)[vapply(spec$cols, inherits, FUN.VALUE = logical(1),
-#                                    what = "collector_datetime")]
-
-# # codes in date columns that mean "pending / not yet set"
-# clerk_codes <- c("M", "R", "B")
-
-# # flag clerk codes in date columns and clean the date columns
-# cases_tbl <-
-#   cases_tbl |>
-#   mutate(
-#     across(
-#       all_of(dt_cols),
-#       ~ if_else(. %in% clerk_codes, ., NA_character_),
-#       .names = "{.col}_clerk_flag"
-#     ),
-#     across(
-#       all_of(dt_cols),
-#       ~ if_else(. %in% clerk_codes, NA_character_, .)
-#     )
-#   ) |>
-#   # drop all columns that end with _FLAG AND are all NA
-#   select(!(ends_with("_FLAG") & where(~ all(is.na(.)))))
 
 cases_tbl <- type_convert(cases_tbl, col_types = spec, na = na_vals)
 
@@ -74,6 +48,7 @@ cases_tbl <-
   janitor::clean_names() |>
   select(
     -c(
+      lpr,
       site_type,
       atty_nbr,
       update_site,
@@ -88,6 +63,7 @@ cases_tbl <-
       inmate_housing,
       updated_state,
       updated_city,
+      updated_zipcode,
       alien_city,
       address_changedon,
       zbond_mrg_flag,
@@ -96,8 +72,8 @@ cases_tbl <-
     )
   ) |>
   mutate(
-    e_28_date  = as.Date(e_28_date),
-    birth_year = year(c_birthdate)
+    e_28_date = as.Date(e_28_date),
+    birth_year = as.integer(str_extract(c_birthdate, "\\d{4}"))
   ) |>
   select(-c_birthdate)
 

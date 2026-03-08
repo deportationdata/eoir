@@ -2,63 +2,63 @@ library(tidyverse)
 library(tidylog)
 
 tblLanguage <- read_delim(
-  "inputs/tblLanguage.csv",
+  "inputs_eoir/tblLanguage.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
 ) |>
   janitor::clean_names()
 tblLookup_CasePriority <- read_delim(
-  "inputs/tblLookup_CasePriority.csv",
+  "inputs_eoir/tblLookup_CasePriority.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
 ) |>
   janitor::clean_names()
 tblLookupAlienNat <- read_delim(
-  "inputs/tblLookupAlienNat.csv",
+  "inputs_eoir/tblLookupAlienNat.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
 ) |>
   janitor::clean_names()
 tbllookupAppealType <- read_delim(
-  "inputs/tbllookupAppealType.csv",
+  "inputs_eoir/tbllookupAppealType.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
 ) |>
   janitor::clean_names()
 tblLookupBaseCity <- read_delim(
-  "inputs/tblLookupBaseCity.csv",
+  "inputs_eoir/tblLookupBaseCity.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
 ) |>
   janitor::clean_names()
 tbllookupCharges <- read_delim(
-  "inputs/tbllookupCharges.csv",
+  "inputs_eoir/tbllookupCharges.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
 ) |>
   janitor::clean_names()
 tblLookupBIA <- read_delim(
-  "inputs/tblLookupBIA.csv",
+  "inputs_eoir/tblLookupBIA.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
 ) |>
   janitor::clean_names()
 tblLookupBIADecision <- read_delim(
-  "inputs/tblLookupBIADecision.csv",
+  "inputs_eoir/tblLookupBIADecision.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
 ) |>
   janitor::clean_names()
 tblLookupHloc <- read_delim(
-  "inputs/tblLookupHloc.csv",
+  "inputs_eoir/tblLookupHloc.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
@@ -66,14 +66,14 @@ tblLookupHloc <- read_delim(
   janitor::clean_names() |>
   filter(hearing_loc_code != "IAD") # non-unique key with 88 different names for IAD; skip this lookup for now
 tblLookupJudge <- read_delim(
-  "inputs/tblLookupJudge.csv",
+  "inputs_eoir/tblLookupJudge.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
 ) |>
   janitor::clean_names()
 tblLookupNationality <- read_delim(
-  "inputs/tblLookupNationality.csv",
+  "inputs_eoir/tblLookupNationality.csv",
   delim = "\t",
   col_types = cols(.default = col_character()),
   na = c("", "NA", "NULL")
@@ -110,13 +110,14 @@ rm(case_tbl)
 gc()
 
 # --- ZIP code → city + county (Census/USPS) ---
-zcta_county_url  <- "https://www2.census.gov/geo/docs/maps-data/data/rel2020/zcta520/tab20_zcta520_county20_natl.txt"
+zcta_county_url <- "https://www2.census.gov/geo/docs/maps-data/data/rel2020/zcta520/tab20_zcta520_county20_natl.txt"
 zcta_county_path <- "inputs/tab20_zcta520_county20_natl.txt"
 if (!file.exists(zcta_county_path)) {
   download.file(zcta_county_url, zcta_county_path)
 }
 zcta_county <- read_delim(
-  zcta_county_path, delim = "|",
+  zcta_county_path,
+  delim = "|",
   col_types = cols(.default = col_character(), AREALAND_PART = col_double())
 ) |>
   janitor::clean_names() |>
@@ -125,26 +126,45 @@ zcta_county <- read_delim(
   ungroup() |>
   select(
     alien_zipcode = geoid_zcta5_20,
-    zip_county    = namelsad_county_20
+    zip_county = namelsad_county_20
   )
 
 # City name from Missouri Census Data Center geocorr file (USPS ZIPName field)
 zip_city <- read_csv(
   "inputs/geocorr2022_2606509064.csv",
   skip = 2,
-  col_names = c("zcta", "state", "place", "stab", "PlaceName", "ZIPName", "pop20", "afact"),
-  col_types = cols(.default = col_character(), pop20 = col_double(), afact = col_double())
+  col_names = c(
+    "zcta",
+    "state",
+    "place",
+    "stab",
+    "PlaceName",
+    "ZIPName",
+    "pop20",
+    "afact"
+  ),
+  col_types = cols(
+    .default = col_character(),
+    pop20 = col_double(),
+    afact = col_double()
+  )
 ) |>
   filter(!is.na(zcta)) |>
   distinct(zcta, ZIPName) |>
-  mutate(zip_city = str_remove(ZIPName, " [(]PO boxes[)]$") |> str_remove(", [A-Z]{2}$")) |>
-  select(alien_zipcode = zcta, zip_city)
+  mutate(
+    zip_state = str_remove(ZIPName, " [(]PO boxes[)]$") |> str_extract("[A-Z]{2}$"),
+    zip_city  = str_remove(ZIPName, " [(]PO boxes[)]$") |> str_remove(", [A-Z]{2}$")
+  ) |>
+  select(zcta, zip_city, zip_state)
 
 zip_lookup <- left_join(zip_city, zcta_county, by = "alien_zipcode")
+stopifnot(!anyDuplicated(zip_lookup$alien_zipcode))
 
+n_before_zip <- nrow(cases)
 cases <- cases |>
-  left_join(zip_lookup, by = "alien_zipcode") |>
+  left_join(zip_lookup, by = c("alien_zipcode" = "zcta")) |>
   select(-alien_zipcode)
+stopifnot(nrow(cases) == n_before_zip)
 
 appeals_by_case <-
   arrow::read_feather("tmp/appeals_cases.feather")
@@ -220,7 +240,19 @@ cases <-
     ),
     finalcompyear = year(finalcompdate),
     length = as.numeric(finalcompdate - osc_date),
-    anyreliefapp = case_when(anyreliefapp != 1 ~ 0, TRUE ~ anyreliefapp)
+    across(
+      c(
+        asylumapp,
+        withholdapp,
+        catapp,
+        adjustapp,
+        nonlprcancelapp,
+        lprcancelapp,
+        anyreliefapp
+      ),
+      replace_na,
+      FALSE
+    )
   )
 
 # tblLanguage: lang -> str_code
@@ -268,14 +300,18 @@ cases <-
   cases |>
   left_join(
     tblLookupBaseCity |>
-      select(base_city_code, base_city_name) |>
-      rename(firstcourt_name = base_city_name),
+      transmute(
+        base_city_code,
+        firstcourt_city_code = glue::glue("{base_city} ({base_city_code})")
+      ),
     by = c("firstcourt" = "base_city_code")
   ) |>
   left_join(
     tblLookupBaseCity |>
-      select(base_city_code, base_city_name) |>
-      rename(finalcourt_name = base_city_name),
+      transmute(
+        base_city_code,
+        finalcourt_city_code = glue::glue("{base_city} ({base_city_code})")
+      ),
     by = c("finalcourt" = "base_city_code")
   ) |>
   select(-firstcourt, -finalcourt)
@@ -299,25 +335,27 @@ cases <-
   ) |>
   select(-ij_code)
 
-# tblLookupHloc: skipped — hearing_loc_code "IAD" maps to 88 different names (non-unique key)
+# remove CSV read in errors based on a single variables
+cases <-
+  cases |> filter(is.na(c_asy_type) | c_asy_type %in% c("E", "I", "J"))
 
 arrow::write_feather(
   cases,
   "outputs/cases.feather"
 )
 
-haven::write_dta(cases, "outputs/cases.dta")
-haven::write_sav(cases, "outputs/cases.sav")
+# haven::write_dta(cases, "outputs/cases.dta")
+# haven::write_sav(cases, "outputs/cases.sav")
 
-# split into sheets for Excel (max 1 million rows per sheet)
-sheet_size <- 1e6
-n_sheets <- ceiling(nrow(cases) / sheet_size)
+# # split into sheets for Excel (max 1 million rows per sheet)
+# sheet_size <- 1e6
+# n_sheets <- ceiling(nrow(cases) / sheet_size)
 
-cases |>
-  mutate(
-    .sheet_id = rep(seq_len(n_sheets), each = sheet_size, length.out = n())
-  ) |>
-  #  gl(n_sheets, sheet_size, n(), labels = FALSE)) |>
-  group_split(.sheet_id, .keep = FALSE) |>
-  set_names(sprintf("%s_%02d", "Sheet", seq_len(n_sheets))) |>
-  writexl::write_xlsx("outputs/cases.xlsx")
+# cases |>
+#   mutate(
+#     .sheet_id = rep(seq_len(n_sheets), each = sheet_size, length.out = n())
+#   ) |>
+#   #  gl(n_sheets, sheet_size, n(), labels = FALSE)) |>
+#   group_split(.sheet_id, .keep = FALSE) |>
+#   set_names(sprintf("%s_%02d", "Sheet", seq_len(n_sheets))) |>
+#   writexl::write_xlsx("outputs/cases.xlsx")

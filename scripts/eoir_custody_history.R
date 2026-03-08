@@ -1,13 +1,29 @@
 library(tidyverse)
 library(tidylog)
 
-custodyhistory_tbl <- data.table::fread(
-  "inputs/tbl_CustodyHistory.csv"
-) |>
+custodyhistory_col_types <- c(
+  IDNCUSTODY = "integer",
+  IDNCASE = "integer",
+  CUSTODY = "character",
+  DATDETAINED = "POSIXct",
+  DATRELEASED = "POSIXct"
+)
+
+custodyhistory_tbl <-
+  data.table::fread(
+    "inputs_eoir/tbl_CustodyHistory.csv",
+    sep = "\t",
+    quote = "",
+    header = TRUE,
+    na.strings = c("", "NA", "N/A", "NULL"),
+    colClasses = custodyhistory_col_types,
+    fill = 5,
+    showProgress = FALSE
+  ) |>
   as_tibble()
 
 custodyhistory_count <-
-  read_lines("inputs/Count.txt") |>
+  read_lines("inputs_eoir/Count.txt") |>
   keep(~ str_detect(., "^tbl_CustodyHistory\\t")) |>
   str_extract("\\d+") |>
   as.integer()
@@ -22,7 +38,7 @@ custodyhistory_by_case <-
     datdetained = as.Date(datdetained), # no changes to missing
     datreleased = as.Date(datreleased) # no changes to missing
   ) |>
-  arrange(idncase, datdetained)
+  arrange(idncase, datdetained, idncustody)
 
 rm(custodyhistory_tbl)
 gc()

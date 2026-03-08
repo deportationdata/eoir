@@ -44,7 +44,7 @@ proceeding_col_types <- c(
 
 proceeding_tbl <-
   data.table::fread(
-    "inputs/B_TblProceeding.csv",
+    "inputs_eoir/B_TblProceeding.csv",
     sep = "\t",
     quote = "",
     header = TRUE,
@@ -56,7 +56,7 @@ proceeding_tbl <-
   as_tibble()
 
 proceeding_count <-
-  read_lines("inputs/Count.txt") |>
+  read_lines("inputs_eoir/Count.txt") |>
   keep(~ str_detect(., "^B_TblProceeding\\t")) |>
   str_extract("\\d+") |>
   as.integer()
@@ -80,9 +80,21 @@ cases_from_proceedings <-
   # -2 rows
   filter(!is.na(idncase)) |>
   # drop cases with inconsistent case types
-  # -307 rows
+  # -314 rows
   filter(n_distinct(case_type) == 1, .by = "idncase") |>
-  arrange(idncase, comp_date, dec_code, other_comp, nat, lang, idnproceeding)
+  arrange(
+    idncase,
+    comp_date,
+    desc(is.na(dec_code)),
+    dec_code,
+    desc(is.na(other_comp)),
+    other_comp,
+    desc(is.na(nat)),
+    nat,
+    desc(is.na(lang)),
+    lang,
+    idnproceeding
+  )
 
 rm(proceeding_tbl)
 gc()
