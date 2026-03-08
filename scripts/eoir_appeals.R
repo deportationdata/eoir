@@ -1,10 +1,10 @@
 library(tidyverse)
 library(tidylog)
 
-appeals_tbl <- data.table::fread("inputs/tblAppeal.csv")
+appeals_tbl <- data.table::fread("inputs_eoir/tblAppeal.csv")
 
 appeals_count <-
-  read_lines("inputs/Count.txt") |>
+  read_lines("inputs_eoir/Count.txt") |>
   keep(~ str_detect(., "^tblAppeal\\t")) |>
   str_extract("\\d+") |>
   as.integer()
@@ -35,7 +35,10 @@ appeals_by_case <-
       last_e_27date = last(dat_attorney_e27),
       datbiadec = last(datbiadec),
       datappealfiled = last(datappealfiled),
-      pendingappeal = any(is.na(datbiadec) & !is.na(datappealfiled))
+      pendingappeal = case_when(
+        any(is.na(datbiadec) & !is.na(datappealfiled)) ~ TRUE,
+        TRUE ~ FALSE
+      )
     ),
     by = .(idncase)
   ] |>

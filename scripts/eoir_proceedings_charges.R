@@ -1,14 +1,29 @@
 library(tidyverse)
 library(tidylog)
 
-charges_tbl <- data.table::fread(
-  "inputs/B_TblProceedCharges.csv",
-  fill = 6
-) |>
+charges_col_types <- c(
+  IDNPRCDCHG = "integer",
+  IDNCASE = "integer",
+  IDNPROCEEDING = "integer",
+  CHARGE = "character",
+  CHG_STATUS = "character"
+)
+
+charges_tbl <-
+  data.table::fread(
+    "inputs_eoir/B_TblProceedCharges.csv",
+    sep = "\t",
+    quote = "",
+    header = TRUE,
+    na.strings = c("", "NA", "N/A", "NULL"),
+    colClasses = charges_col_types,
+    fill = 6,
+    showProgress = FALSE
+  ) |>
   as_tibble()
 
 proceedingscharges_count <-
-  read_lines("inputs/Count.txt") |>
+  read_lines("inputs_eoir/Count.txt") |>
   keep(~ str_detect(., "^B_TblProceedCharges\\t")) |>
   str_extract("\\d+") |>
   as.integer()
@@ -17,6 +32,7 @@ stopifnot(abs(nrow(charges_tbl) - proceedingscharges_count) < 5)
 
 charges_tbl <-
   charges_tbl |>
+  mutate(across(where(is.character), str_squish)) |>
   janitor::clean_names()
 
 library(data.table)

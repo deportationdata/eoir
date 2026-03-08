@@ -2,12 +2,12 @@ library(tidyverse)
 library(tidylog)
 
 associated_bond_tbl <- data.table::fread(
-  "inputs/D_TblAssociatedBond.csv",
+  "inputs_eoir/D_TblAssociatedBond.csv",
   fill = 33
 )
 
 associated_bond_count <-
-  read_lines("inputs/Count.txt") |>
+  read_lines("inputs_eoir/Count.txt") |>
   keep(~ str_detect(., "^D_TblAssociatedBond\\t")) |>
   str_extract("\\d+") |>
   as.integer()
@@ -37,7 +37,27 @@ associated_bond_by_case <-
     ),
     by = idncase
   ] |>
-  as_tibble()
+  as_tibble() |>
+  mutate(
+    lastdec = recode(
+      lastdec,
+      G = "AMELIORATION GRANTED",
+      W = "BOND REQUEST WITHDRAWN",
+      D = "AMELIORATION DENIED-NO JURISDICTION",
+      I = "BOND AMOUNT INCREASED",
+      E = "AMELIORATION DENIED",
+      O = "OTHER",
+      F = "FLORES - RELEASE",
+      L = "FLORES - NO RELEASE",
+      A = "BOND DENIED-MOOT",
+      C = "BOND GRANTED-AMOUNT DECREASED",
+      J = "BOND DENIED-NO JURISDICTION",
+      N = "BOND DENIED- NO CHANGE (NO BOND SET BY DHS)",
+      S = "BOND DENIED- NO CHANGE (DHS BOND AMOUNT UNCHANGED)",
+      R = "BOND GRANTED-OWN RECOGNIZANCE",
+      .default = NA_character_
+    )
+  )
 
 arrow::write_feather(
   associated_bond_by_case,
