@@ -1,6 +1,8 @@
 library(tidyverse)
 library(tidylog)
 
+source("scripts/eoir_utils.R")
+
 charges_col_types <- c(
   IDNPRCDCHG = "integer",
   IDNCASE = "integer",
@@ -32,7 +34,11 @@ stopifnot(abs(nrow(charges_tbl) - proceedingscharges_count) < 5)
 
 charges_tbl <-
   charges_tbl |>
-  mutate(across(where(is.character), str_squish)) |>
+  drop_overflow_cols() |>
+  mutate(across(where(is.character),
+    ~ str_remove_all(.x, "\\p{Cntrl}") |> str_squish()
+  )) |>
+  mutate(chg_status = toupper(chg_status)) |>
   janitor::clean_names()
 
 library(data.table)

@@ -1,5 +1,8 @@
 library(tidyverse)
 library(tidylog)
+library(data.table)
+
+source("scripts/eoir_utils.R")
 
 proceeding_col_types <- c(
   IDNPROCEEDING = "integer",
@@ -52,8 +55,7 @@ proceeding_tbl <-
     colClasses = proceeding_col_types,
     fill = 40,
     showProgress = FALSE
-  ) |>
-  as_tibble()
+  )
 
 proceeding_count <-
   read_lines("inputs_eoir/Count.txt") |>
@@ -62,6 +64,41 @@ proceeding_count <-
   as.integer()
 
 stopifnot(abs(nrow(proceeding_tbl) - proceeding_count) < 5)
+
+# Fix mid-row tab shifts (~71 rows with extra tabs before COMP_DATE/APPEAL area)
+proc_shift_finder <- function(row_dt, n_extra) {
+  col_names <- colnames(row_dt)
+  date_pat <- "^\\d{4}-\\d{2}-\\d{2}"
+  date_cols <- c("OSC_DATE", "INPUT_DATE", "TRANS_IN_DATE", "HEARING_DATE",
+                 "COMP_DATE", "VENUE_CHG_GRANTED", "DATE_APPEAL_DUE_STATUS",
+                 "DATE_DETAINED", "DATE_RELEASED")
+  non_date_cols <- c("CUSTODY", "CASE_TYPE", "NAT", "LANG",
+                     "ABSENTIA", "TRANSFER_STATUS")
+  violations <- integer(0)
+  for (col in date_cols) {
+    if (!col %in% col_names) next
+    val <- trimws(as.character(row_dt[[col]]))
+    if (!is.na(val) && nchar(val) > 0 && !grepl(date_pat, val))
+      violations <- c(violations, which(col_names == col))
+  }
+  for (col in non_date_cols) {
+    if (!col %in% col_names) next
+    val <- trimws(as.character(row_dt[[col]]))
+    if (!is.na(val) && grepl(date_pat, val))
+      violations <- c(violations, which(col_names == col))
+  }
+  if (!length(violations)) return(NA_character_)
+  shift_idx <- min(violations) - n_extra
+  if (shift_idx >= 1) col_names[shift_idx] else NA_character_
+}
+
+proceeding_tbl <- auto_fix_tab_shifts(proceeding_tbl, proc_shift_finder)
+
+proceeding_tbl <-
+  proceeding_tbl |>
+  as_tibble() |>
+  clean_string_cols() |>
+  drop_overflow_cols()
 
 cases_from_proceedings <-
   proceeding_tbl |>
@@ -99,7 +136,6 @@ cases_from_proceedings <-
 rm(proceeding_tbl)
 gc()
 
-library(data.table)
 setDT(cases_from_proceedings)
 
 cases_from_proceedings <-
