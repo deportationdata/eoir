@@ -1,6 +1,8 @@
 library(tidyverse)
 library(tidylog)
 
+source("scripts/eoir_utils.R")
+
 custodyhistory_col_types <- c(
   IDNCUSTODY = "integer",
   IDNCASE = "integer",
@@ -32,6 +34,8 @@ stopifnot(nrow(custodyhistory_tbl) == custodyhistory_count)
 
 custodyhistory_by_case <-
   custodyhistory_tbl |>
+  as_tibble() |>
+  clean_string_cols() |>
   janitor::clean_names() |>
   # convert to date to remove unused time information
   mutate(

@@ -1,6 +1,8 @@
 library(tidyverse)
 library(tidylog)
 
+source("scripts/eoir_utils.R")
+
 appeals_tbl <- data.table::fread("inputs_eoir/tblAppeal.csv")
 
 appeals_count <-
@@ -13,6 +15,8 @@ stopifnot(abs(nrow(appeals_tbl) - appeals_count) < 5)
 
 appeals_tbl <-
   appeals_tbl |>
+  as_tibble() |>
+  clean_string_cols() |>
   janitor::clean_names() |>
   mutate(
     datappealfiled = as.Date(dat_appeal_filed),
