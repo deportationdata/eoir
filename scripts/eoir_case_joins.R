@@ -125,7 +125,7 @@ zcta_county <- read_delim(
   slice_max(arealand_part, n = 1, with_ties = FALSE) |>
   ungroup() |>
   select(
-    alien_zipcode = geoid_zcta5_20,
+    zcta = geoid_zcta5_20,
     zip_county = namelsad_county_20
   )
 
@@ -152,13 +152,15 @@ zip_city <- read_csv(
   filter(!is.na(zcta)) |>
   distinct(zcta, ZIPName) |>
   mutate(
-    zip_state = str_remove(ZIPName, " [(]PO boxes[)]$") |> str_extract("[A-Z]{2}$"),
-    zip_city  = str_remove(ZIPName, " [(]PO boxes[)]$") |> str_remove(", [A-Z]{2}$")
+    zip_state = str_remove(ZIPName, " [(]PO boxes[)]$") |>
+      str_extract("[A-Z]{2}$"),
+    zip_city = str_remove(ZIPName, " [(]PO boxes[)]$") |>
+      str_remove(", [A-Z]{2}$")
   ) |>
   select(zcta, zip_city, zip_state)
 
-zip_lookup <- left_join(zip_city, zcta_county, by = "alien_zipcode")
-stopifnot(!anyDuplicated(zip_lookup$alien_zipcode))
+zip_lookup <- left_join(zip_city, zcta_county, by = "zcta")
+stopifnot(!anyDuplicated(zip_lookup$zcta))
 
 n_before_zip <- nrow(cases)
 cases <- cases |>
@@ -250,8 +252,7 @@ cases <-
         lprcancelapp,
         anyreliefapp
       ),
-      replace_na,
-      FALSE
+      \(x) replace_na(x, FALSE)
     )
   )
 
