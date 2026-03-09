@@ -1,84 +1,22 @@
 library(tidyverse)
 library(tidylog)
 
-tblLanguage <- read_delim(
-  "inputs_eoir/tblLanguage.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names()
-tblLookup_CasePriority <- read_delim(
-  "inputs_eoir/tblLookup_CasePriority.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names()
-tblLookupAlienNat <- read_delim(
-  "inputs_eoir/tblLookupAlienNat.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names()
-tbllookupAppealType <- read_delim(
-  "inputs_eoir/tbllookupAppealType.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names()
-tblLookupBaseCity <- read_delim(
-  "inputs_eoir/tblLookupBaseCity.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names()
-tbllookupCharges <- read_delim(
-  "inputs_eoir/tbllookupCharges.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names()
-tblLookupBIA <- read_delim(
-  "inputs_eoir/tblLookupBIA.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names()
-tblLookupBIADecision <- read_delim(
-  "inputs_eoir/tblLookupBIADecision.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names()
-tblLookupHloc <- read_delim(
-  "inputs_eoir/tblLookupHloc.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names() |>
-  filter(hearing_loc_code != "IAD") # non-unique key with 88 different names for IAD; skip this lookup for now
-tblLookupJudge <- read_delim(
-  "inputs_eoir/tblLookupJudge.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names()
-tblLookupNationality <- read_delim(
-  "inputs_eoir/tblLookupNationality.csv",
-  delim = "\t",
-  col_types = cols(.default = col_character()),
-  na = c("", "NA", "NULL")
-) |>
-  janitor::clean_names()
+source("scripts/utilities.R")
+
+tblLanguage <- read_eoir_lookup("inputs_eoir/tblLanguage.csv")
+tblLookup_CasePriority <- read_eoir_lookup(
+  "inputs_eoir/tblLookup_CasePriority.csv"
+)
+tblLookupAlienNat <- read_eoir_lookup("inputs_eoir/tblLookupAlienNat.csv")
+tbllookupAppealType <- read_eoir_lookup("inputs_eoir/tbllookupAppealType.csv")
+tblLookupBaseCity <- read_eoir_lookup("inputs_eoir/tblLookupBaseCity.csv")
+tbllookupCharges <- read_eoir_lookup("inputs_eoir/tbllookupCharges.csv")
+tblLookupBIA <- read_eoir_lookup("inputs_eoir/tblLookupBIA.csv")
+tblLookupBIADecision <- read_eoir_lookup("inputs_eoir/tblLookupBIADecision.csv")
+tblLookupHloc <- read_eoir_lookup("inputs_eoir/tblLookupHloc.csv") |>
+  filter(hearing_loc_code != "IAD") # non-unique key; skip for now
+tblLookupJudge <- read_eoir_lookup("inputs_eoir/tblLookupJudge.csv")
+tblLookupNationality <- read_eoir_lookup("inputs_eoir/tblLookupNationality.csv")
 
 cases <-
   arrow::read_feather("tmp/cases_from_proceedings.feather")
@@ -336,6 +274,18 @@ cases <-
   ) |>
   select(-ij_code)
 
+# --- Data validation: NA-ify values from confirmed CSV read-in errors ---
+cases <-
+  cases |>
+  mutate(
+    # NA-ify bad lastbiadecisiontype values (source data error, not a valid code)
+    lastbiadecisiontype = if_else(
+      lastbiadecisiontype %in% c("A", "L", "P", "R", "T"),
+      lastbiadecisiontype,
+      NA_character_
+    )
+  )
+
 # remove CSV read in errors based on a single variables
 cases <-
   cases |> filter(is.na(c_asy_type) | c_asy_type %in% c("E", "I", "J"))
@@ -343,6 +293,12 @@ cases <-
 arrow::write_feather(
   cases,
   "outputs/cases.feather"
+)
+
+arrow::write_parquet(
+  cases,
+  "outputs/cases.parquet",
+  compression = "ZSTD"
 )
 
 # haven::write_dta(cases, "outputs/cases.dta")

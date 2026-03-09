@@ -2,48 +2,48 @@ library(tidyverse)
 library(tidylog)
 library(data.table)
 
-source("scripts/eoir_utils.R")
+source("scripts/utilities.R")
 
-associated_bond_tbl <- data.table::fread(
-  "inputs_eoir/D_TblAssociatedBond.csv",
-  fill = 35
-)
-
-associated_bond_count <-
-  read_lines("inputs_eoir/Count.txt") |>
-  keep(~ str_detect(., "^D_TblAssociatedBond\\t")) |>
-  str_extract("\\d+") |>
-  as.integer()
-
-stopifnot(abs(nrow(associated_bond_tbl) - associated_bond_count) < 5)
+associated_bond_tbl <- read_eoir_tsv("inputs_eoir/D_TblAssociatedBond.csv")
 
 # Fix mid-row tab shifts (~6 rows with extra tabs near BOND_HEAR_REQ_DATE)
-bond_shift_finder <- function(row_dt, n_extra) {
-  col_names <- colnames(row_dt)
-  date_pat <- "^\\d{4}-\\d{2}-\\d{2}"
-  non_date_check <- c("NEW_BOND", "BOND_TYPE", "FILING_METHOD", "FILING_PARTY",
-                       "INITIAL_BOND", "REL_CON")
-  for (col in non_date_check) {
-    if (col %in% col_names) {
-      val <- trimws(as.character(row_dt[[col]]))
-      if (!is.na(val) && grepl(date_pat, val)) {
-        shift_idx <- which(col_names == col) - n_extra
-        if (shift_idx >= 1) return(col_names[shift_idx])
-      }
-    }
-  }
-  NA_character_
-}
+bond_shift_finder <- make_shift_finder(
+  date_cols = c(
+    "OSC_DATE",
+    "UPDATE_DATE",
+    "INPUT_DATE",
+    "COMP_DATE",
+    "BOND_HEAR_REQ_DATE",
+    "DATE_APPEAL_DUE",
+    "E_28_DATE",
+    "DECISION_DUE_DATE"
+  ),
+  non_date_cols = c(
+    "NEW_BOND",
+    "BOND_TYPE",
+    "FILING_METHOD",
+    "FILING_PARTY",
+    "INITIAL_BOND",
+    "REL_CON",
+    "APPEAL_REVD",
+    "APPEAL_NOT_FILED",
+    "DEC",
+    "INS_TA"
+  )
+)
 
-associated_bond_tbl <- auto_fix_tab_shifts(associated_bond_tbl, bond_shift_finder)
+associated_bond_tbl <- auto_fix_tab_shifts(
+  associated_bond_tbl,
+  bond_shift_finder
+)
 
 associated_bond_tbl <-
   associated_bond_tbl |>
   as_tibble() |>
-  clean_string_cols() |>
-  drop_overflow_cols() |>
+  clean_eoir_cols() |>
   janitor::clean_names() |>
   mutate(
+    idncase = as.integer(idncase),
     bond_comp_date = as.Date(comp_date),
     bond_hear_req_date = as.Date(bond_hear_req_date)
   ) |>
