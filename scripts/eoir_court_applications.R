@@ -1,30 +1,18 @@
 library(tidyverse)
 library(tidylog)
+library(data.table)
 
-source("scripts/eoir_utils.R")
-
-court_applications_tbl <- data.table::fread(
-  "inputs_eoir/tbl_Court_Appln.csv",
-  fill = 7
-)
-
-court_applications_count <-
-  read_lines("inputs_eoir/Count.txt") |>
-  keep(~ str_detect(., "^tbl_Court_Appln\\t")) |>
-  str_extract("\\d+") |>
-  as.integer()
-
-stopifnot(nrow(court_applications_tbl) == court_applications_count)
+source("scripts/utilities.R")
 
 court_applications_tbl <-
-  court_applications_tbl |>
+  read_eoir_tsv("inputs_eoir/tbl_Court_Appln.csv") |>
   as_tibble() |>
-  clean_string_cols() |>
-  drop_overflow_cols() |>
-  janitor::clean_names()
+  clean_eoir_cols() |>
+  janitor::clean_names() |>
+  mutate(idncase = as.integer(idncase))
 
-library(data.table)
 setDT(court_applications_tbl)
+
 court_applications_by_case <-
   court_applications_tbl[,
     .(

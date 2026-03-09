@@ -1,30 +1,21 @@
 library(tidyverse)
 library(tidylog)
+library(data.table)
 
-source("scripts/eoir_utils.R")
-
-appeals_tbl <- data.table::fread("inputs_eoir/tblAppeal.csv")
-
-appeals_count <-
-  read_lines("inputs_eoir/Count.txt") |>
-  keep(~ str_detect(., "^tblAppeal\\t")) |>
-  str_extract("\\d+") |>
-  as.integer()
-
-stopifnot(abs(nrow(appeals_tbl) - appeals_count) < 5)
+source("scripts/utilities.R")
 
 appeals_tbl <-
-  appeals_tbl |>
+  read_eoir_tsv("inputs_eoir/tblAppeal.csv") |>
   as_tibble() |>
-  clean_string_cols() |>
+  clean_eoir_cols() |>
   janitor::clean_names() |>
   mutate(
+    idncase = as.integer(idncase),
     datappealfiled = as.Date(dat_appeal_filed),
     datbiadec = as.Date(dat_bia_decision)
   ) |>
   arrange(idncase, datbiadec, datappealfiled, idn_appeal)
 
-library(data.table)
 setDT(appeals_tbl)
 
 appeals_by_case <-

@@ -10,12 +10,12 @@ set -e
 # # rm eoir_data.zip
 # mkdir -p tmp
 
-# Rscript scripts/eoir_appeals.R
+Rscript scripts/eoir_appeals.R
 Rscript scripts/eoir_associated_bond.R
-# Rscript scripts/eoir_case.R
-# Rscript scripts/eoir_court_applications.R
-# Rscript scripts/eoir_custody_history.R
-# Rscript scripts/eoir_lookups.R
-# Rscript scripts/eoir_proceeding.R
+Rscript scripts/eoir_case.R
+Rscript scripts/eoir_court_applications.R
+Rscript scripts/eoir_custody_history.R
+Rscript scripts/eoir_lookups.R
+Rscript scripts/eoir_proceeding.R
 Rscript scripts/eoir_proceedings_charges.R
 Rscript scripts/eoir_case_joins.R

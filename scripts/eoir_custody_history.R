@@ -1,7 +1,8 @@
 library(tidyverse)
 library(tidylog)
+library(data.table)
 
-source("scripts/eoir_utils.R")
+source("scripts/utilities.R")
 
 custodyhistory_col_types <- c(
   IDNCUSTODY = "integer",
@@ -11,31 +12,13 @@ custodyhistory_col_types <- c(
   DATRELEASED = "POSIXct"
 )
 
-custodyhistory_tbl <-
-  data.table::fread(
-    "inputs_eoir/tbl_CustodyHistory.csv",
-    sep = "\t",
-    quote = "",
-    header = TRUE,
-    na.strings = c("", "NA", "N/A", "NULL"),
-    colClasses = custodyhistory_col_types,
-    fill = 5,
-    showProgress = FALSE
-  ) |>
-  as_tibble()
-
-custodyhistory_count <-
-  read_lines("inputs_eoir/Count.txt") |>
-  keep(~ str_detect(., "^tbl_CustodyHistory\\t")) |>
-  str_extract("\\d+") |>
-  as.integer()
-
-stopifnot(nrow(custodyhistory_tbl) == custodyhistory_count)
-
 custodyhistory_by_case <-
-  custodyhistory_tbl |>
+  read_eoir_tsv(
+    "inputs_eoir/tbl_CustodyHistory.csv",
+    col_types = custodyhistory_col_types
+  ) |>
   as_tibble() |>
-  clean_string_cols() |>
+  clean_eoir_cols() |>
   janitor::clean_names() |>
   # convert to date to remove unused time information
   mutate(
@@ -44,12 +27,8 @@ custodyhistory_by_case <-
   ) |>
   arrange(idncase, datdetained, idncustody)
 
-rm(custodyhistory_tbl)
-gc()
-
-# rewrite in data.table
-library(data.table)
 setDT(custodyhistory_by_case)
+
 custodyhistory_by_case <-
   custodyhistory_by_case[,
     {

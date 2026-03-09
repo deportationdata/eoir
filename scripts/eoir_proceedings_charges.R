@@ -1,7 +1,8 @@
 library(tidyverse)
 library(tidylog)
+library(data.table)
 
-source("scripts/eoir_utils.R")
+source("scripts/utilities.R")
 
 charges_col_types <- c(
   IDNPRCDCHG = "integer",
@@ -12,36 +13,13 @@ charges_col_types <- c(
 )
 
 charges_tbl <-
-  data.table::fread(
+  read_eoir_tsv(
     "inputs_eoir/B_TblProceedCharges.csv",
-    sep = "\t",
-    quote = "",
-    header = TRUE,
-    na.strings = c("", "NA", "N/A", "NULL"),
-    colClasses = charges_col_types,
-    fill = 6,
-    showProgress = FALSE
+    col_types = charges_col_types
   ) |>
-  as_tibble()
-
-proceedingscharges_count <-
-  read_lines("inputs_eoir/Count.txt") |>
-  keep(~ str_detect(., "^B_TblProceedCharges\\t")) |>
-  str_extract("\\d+") |>
-  as.integer()
-
-stopifnot(abs(nrow(charges_tbl) - proceedingscharges_count) < 5)
-
-charges_tbl <-
-  charges_tbl |>
-  drop_overflow_cols() |>
-  mutate(across(where(is.character),
-    ~ str_remove_all(.x, "\\p{Cntrl}") |> str_squish()
-  )) |>
-  mutate(chg_status = toupper(chg_status)) |>
+  as_tibble() |>
+  clean_eoir_cols() |>
   janitor::clean_names()
-
-library(data.table)
 
 charges_dt <- as.data.table(charges_tbl)
 
