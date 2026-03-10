@@ -4,22 +4,16 @@ library(data.table)
 
 source("scripts/utilities.R")
 
-charges_col_types <- c(
-  IDNPRCDCHG = "integer",
-  IDNCASE = "integer",
-  IDNPROCEEDING = "integer",
-  CHARGE = "character",
-  CHG_STATUS = "character"
-)
-
 charges_tbl <-
-  read_eoir_tsv(
-    "inputs_eoir/B_TblProceedCharges.csv",
-    col_types = charges_col_types
-  ) |>
+  read_eoir_tsv("inputs_eoir/B_TblProceedCharges.csv") |>
   as_tibble() |>
   clean_eoir_cols() |>
-  janitor::clean_names()
+  janitor::clean_names() |>
+  mutate(
+    idnprcdchg = as.integer(idnprcdchg),
+    idncase = as.integer(idncase),
+    idnproceeding = as.integer(idnproceeding)
+  )
 
 charges_dt <- as.data.table(charges_tbl)
 

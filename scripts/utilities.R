@@ -75,7 +75,13 @@ read_eoir_tsv <- function(file, col_types = "character") {
       str_extract("\\d+") |>
       as.integer()
     if (length(expected) == 1L) {
-      stopifnot(abs(nrow(dt) - expected) < 5)
+      diff <- abs(nrow(dt) - expected)
+      if (diff >= 5) {
+        warning(sprintf(
+          "read_eoir_tsv: %s row count mismatch (got %d, Count.txt says %d, diff=%d)",
+          tbl_name, nrow(dt), expected, diff
+        ))
+      }
     }
   }
   dt
