@@ -12,7 +12,8 @@ appeals_tbl <-
   mutate(
     idncase = as.integer(idncase),
     datappealfiled = as.Date(dat_appeal_filed),
-    datbiadec = as.Date(dat_bia_decision)
+    datbiadec = as.Date(dat_bia_decision),
+    dat_attorney_e27 = as.POSIXct(dat_attorney_e27)
   ) |>
   arrange(idncase, datbiadec, datappealfiled, idn_appeal)
 

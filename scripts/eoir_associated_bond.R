@@ -45,7 +45,9 @@ associated_bond_tbl <-
   mutate(
     idncase = as.integer(idncase),
     bond_comp_date = as.Date(comp_date),
-    bond_hear_req_date = as.Date(bond_hear_req_date)
+    bond_hear_req_date = as.Date(bond_hear_req_date),
+    initial_bond = as.numeric(initial_bond),
+    new_bond = as.numeric(new_bond)
   ) |>
   arrange(idncase, bond_comp_date, idnassocbond)
 
