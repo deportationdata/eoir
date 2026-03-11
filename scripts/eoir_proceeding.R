@@ -29,14 +29,57 @@ proc_shift_finder <- make_shift_finder(
   )
 )
 
-proceeding_tbl <- auto_fix_tab_shifts(proceeding_tbl, proc_shift_finder)
+proc_fix_result <- auto_fix_tab_shifts(proceeding_tbl, proc_shift_finder)
+proceeding_tbl <- proc_fix_result$dt
 
 na_vals <- c("", "NA", "N/A", "NULL")
 
 proceeding_tbl <-
   proceeding_tbl |>
   as_tibble() |>
-  clean_eoir_cols() |>
+  clean_eoir_cols()
+
+# Load lookup tables for validation
+lkp_nat <- read_eoir_lookup("inputs_eoir/tblLookupAlienNat.csv")
+lkp_lang <- read_eoir_lookup("inputs_eoir/tblLanguage.csv")
+lkp_base_city <- read_eoir_lookup("inputs_eoir/tblLookupBaseCity.csv")
+lkp_hloc <- read_eoir_lookup("inputs_eoir/tblLookupHloc.csv")
+lkp_judge <- read_eoir_lookup("inputs_eoir/tblLookupJudge.csv")
+lkp_court_dec <- read_eoir_lookup("inputs_eoir/tblLookupCourtDecision.csv")
+
+# Validate that shift-fixing didn't corrupt key columns
+proceeding_tbl |>
+  col_vals_not_null(IDNPROCEEDING) |>
+  col_vals_not_null(IDNCASE) |>
+  col_vals_regex(IDNPROCEEDING, "^\\d+$") |>
+  col_vals_regex(IDNCASE, "^\\d+$") |>
+  col_vals_in_set(CASE_TYPE, c("DEP", "RMV", "BND", NA)) |>
+  col_vals_in_set(CUSTODY, c("D", "N", "R", NA)) |>
+  col_vals_in_set(ABSENTIA, c("Y", "N", NA)) |>
+  col_vals_in_set(TRANSFER_STATUS, c("I", "O", NA)) |>
+  col_vals_in_set(
+    DEC_TYPE, c("A", "C", "O", "R", "T", "W", "X", NA),
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  ) |>
+  col_vals_in_set(NAT, c(lkp_nat$str_code, NA)) |>
+  col_vals_in_set(LANG, c(lkp_lang$str_code, NA)) |>
+  col_vals_in_set(BASE_CITY_CODE, c(lkp_base_city$base_city_code, NA)) |>
+  col_vals_in_set(HEARING_LOC_CODE, c(lkp_hloc$hearing_loc_code, NA)) |>
+  col_vals_in_set(SCHEDULED_HEAR_LOC, c(lkp_hloc$hearing_loc_code, NA)) |>
+  col_vals_in_set(PREV_HEARING_LOC, c(lkp_hloc$hearing_loc_code, NA)) |>
+  col_vals_in_set(PREV_HEARING_BASE, c(lkp_base_city$base_city_code, NA)) |>
+  col_vals_in_set(TRANSFER_TO, c(lkp_base_city$base_city_code, NA)) |>
+  col_vals_in_set(IJ_CODE, c(lkp_judge$judge_code, NA)) |>
+  col_vals_in_set(PREV_IJ_CODE, c(lkp_judge$judge_code, NA)) |>
+  col_vals_in_set(
+    DEC_CODE, c(unique(lkp_court_dec$str_dec_code), NA)
+  ) |>
+  col_vals_in_set(
+    OTHER_COMP, c(unique(lkp_court_dec$str_dec_code), NA)
+  )
+
+proceeding_tbl <-
+  proceeding_tbl |>
   type_convert(
     col_types = cols(
       IDNPROCEEDING = col_integer(),
@@ -53,6 +96,22 @@ proceeding_tbl <-
       DATE_RELEASED = col_datetime(format = "")
     ),
     na = na_vals
+  )
+
+# Check that date columns parsed without excessive failures
+check_date_parse(proceeding_tbl, label = "B_TblProceeding")
+
+# Post-type-convert validation
+proceeding_tbl |>
+  col_vals_gt(IDNPROCEEDING, 0) |>
+  col_vals_gt(IDNCASE, 0) |>
+  col_vals_expr(
+    expr(is.na(OSC_DATE) | is.na(COMP_DATE) | OSC_DATE <= COMP_DATE),
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  ) |>
+  col_vals_expr(
+    expr(is.na(DATE_DETAINED) | is.na(DATE_RELEASED) | DATE_DETAINED <= DATE_RELEASED),
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   )
 
 cases_from_proceedings <-
