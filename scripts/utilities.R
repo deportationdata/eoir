@@ -5,6 +5,7 @@ library(data.table)
 library(stringr)
 library(dplyr)
 library(readr)
+library(pointblank)
 
 #' Read an EOIR TSV file with standardized parameters and row-count validation.
 #' Returns a data.table.
@@ -12,10 +13,14 @@ read_eoir_tsv <- function(file, col_types = "character") {
   # fread with quote="" stops early on rows with MORE fields than the header,
   # even with fill=TRUE. Fix: pad the header line with extra tab-separated
   # overflow column names so fread sees a consistent field count.
+
+  # Count tab-separated fields on header line only (NR==1), then exit
   n_header <- as.integer(system(
     sprintf("awk -F'\t' 'NR==1{print NF; exit}' %s", shQuote(file)),
     intern = TRUE
   ))
+  # Scan the entire file to find the maximum number of tab-separated fields
+  # on any single row (tracks running max `m`, prints it at EOF)
   max_fields <- as.integer(system(
     sprintf(
       "awk -F'\t' 'BEGIN{m=0} NF>m{m=NF} END{print m}' %s",
@@ -34,7 +39,11 @@ read_eoir_tsv <- function(file, col_types = "character") {
     )
     tmp <- tempfile(fileext = ".tsv")
     on.exit(unlink(tmp), add = TRUE)
-    # Write padded header + rest of file (skip original header)
+    # Write padded header + rest of file (skip original header).
+    # Uses shell grouping { echo ...; tail -n +2 ...; } to concatenate:
+    #   - echo: the header line with extra dummy column names appended
+    #   - tail -n +2: all data rows (skipping original header)
+    # The combined output is redirected to a temp file for fread.
     system(sprintf(
       "{ echo %s; tail -n +2 %s; } > %s",
       shQuote(padded_header),
@@ -105,19 +114,28 @@ read_eoir_lookup <- function(file) {
 clean_eoir_cols <- function(df) {
   na_vals <- c("NA", "N/A", "NULL")
   df |>
+    # Strip invisible control chars (e.g. \x00, \r) and collapse repeated
+    # whitespace — the raw EOIR CSVs are littered with these
     mutate(across(
       where(is.character),
       ~ str_remove_all(.x, "\\p{Cntrl}") |> str_squish()
     )) |>
+    # Drop the dummy overflow columns (V1, V2, ...) that were added in
+    # read_eoir_tsv to accommodate rows with extra tab-separated fields
     select(-matches("^V\\d+$")) |>
+    # Convert sentinel strings to proper R NAs (deferred from read_eoir_tsv
+    # so that auto_fix_tab_shifts can distinguish real data from blanks)
     mutate(across(
       where(is.character),
       ~ if_else(.x %in% na_vals | .x == "", NA_character_, .x)
     ))
 }
 
-#' Build a shift finder that checks date cols for non-dates and non-date cols
-#' for dates. Works for any EOIR table with known date/non-date column sets.
+#' Build a shift finder that detects mid-row column shifts by looking for
+#' type mismatches: date-pattern values in columns that should never hold dates,
+#' or non-date values in columns that should always be dates. Returns the name
+#' of the column where the shift likely originated (i.e. where to start the
+#' left-shift correction), or NA if no mismatch is found.
 make_shift_finder <- function(date_cols, non_date_cols) {
   date_pat <- "^\\d{4}-\\d{2}-\\d{2}"
   function(row_dt, n_extra) {
@@ -144,17 +162,23 @@ make_shift_finder <- function(date_cols, non_date_cols) {
     if (!length(violations)) {
       return(NA_character_)
     }
+    # The earliest mismatched column tells us where shifted data landed.
+    # Subtract n_extra (the number of extra tabs inserted) to find the
+    # column where the spurious tab was inserted — that's where we start
+    # shifting everything left.
     shift_idx <- min(violations) - n_extra
     if (shift_idx >= 1) col_names[shift_idx] else NA_character_
   }
 }
 
-#' Shift columns left in a data.table row to fix mid-row tab insertions.
-#' Expects dt to have a column `n` used as key.
+#' Shift columns left in a single data.table row to undo a mid-row tab
+#' insertion. Starting at `col_name`, every cell is replaced by the cell
+#' `n_offset` positions to its right (effectively "deleting" the spurious
+#' tab-created gaps). Expects dt to have a key column `n` for row lookup.
 #' @param dt data.table with setkey(dt, n)
 #' @param row_n integer row key (value of `n` column)
 #' @param col_name character name of the first column to shift into
-#' @param n_offset integer number of positions to shift left
+#' @param n_offset integer number of positions to shift left (= # of extra tabs)
 shift_left_dt <- function(dt, row_n, col_name, n_offset) {
   c_idx <- which(colnames(dt) == col_name)
   i <- dt[.(row_n), which = TRUE]
@@ -170,6 +194,26 @@ shift_left_dt <- function(dt, row_n, col_name, n_offset) {
   invisible(dt)
 }
 
+#' Check that date columns parsed without excessive failures using
+#' readr::problems(). Stops if the failure count exceeds a threshold.
+#' @param df data.frame returned by type_convert()
+#' @param max_fail_rate numeric threshold (0-1); default 0.001 = 0.1%
+#' @param label optional label for error messages
+check_date_parse <- function(df, max_fail_rate = 0.001, label = "data") {
+  p <- problems(df)
+  if (nrow(p) > 0L) {
+    fail_rate <- nrow(p) / nrow(df)
+    if (fail_rate > max_fail_rate) {
+      stop(sprintf(
+        "check_date_parse [%s]: %d parse failures (%.2f%% of %d rows). First few: %s",
+        label, nrow(p), fail_rate * 100, nrow(df),
+        paste(head(paste(p$col, p$expected, sep = ": "), 10), collapse = "; ")
+      ))
+    }
+  }
+  invisible(df)
+}
+
 #' Automatically detect and fix mid-row tab shifts in an fread result.
 #'
 #' @param dt data.table as read by fread (with fill = TRUE)
@@ -177,9 +221,21 @@ shift_left_dt <- function(dt, row_n, col_name, n_offset) {
 #'   "CONCAT_THEN_<col>" signal, or NA_character_ if unfixable
 #' @param pre_fix optional function(dt, row_n, n_extra) called before shifting
 #'   when shift_col_finder returns a "CONCAT_THEN_" prefixed result
-#' @return dt with mid-row shifts fixed and unfixable rows removed
+#' @return list with two elements:
+#'   - dt: the fixed data.table (unfixable rows removed)
+#'   - fixes: data.frame summarising each fix (row_n, n_extra, shift_col,
+#'     pass, status)
 auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
   has_content <- function(x) !is.na(x) & nchar(trimws(as.character(x))) > 0
+
+  # Accumulator for fix metadata
+  fix_log <- list()
+  log_fix <- function(row_n, n_extra, shift_col, pass, status) {
+    fix_log[[length(fix_log) + 1L]] <<- data.frame(
+      row_n = row_n, n_extra = n_extra, shift_col = shift_col,
+      pass = pass, status = status, stringsAsFactors = FALSE
+    )
+  }
 
   # Add row key
   dt[, n := .I]
@@ -219,6 +275,7 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
         rn,
         n_extra
       ))
+      log_fix(rn, n_extra, NA_character_, "overflow", "dropped")
       rows_to_drop <- c(rows_to_drop, rn)
       next
     }
@@ -229,16 +286,20 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
       }
       shift_col <- actual_col
     }
+    log_fix(rn, n_extra, shift_col, "overflow", "fixed")
     shift_left_dt(dt, rn, shift_col, n_extra)
   }
 
-  # --- Pass 2: fix hidden shifts (no overflow, but type violations in-row) ---
-  # These occur when the shift pushes data right but the rightmost columns
-  # were already empty, so nothing spills into overflow.
-  # Detect via the shift_col_finder's non_date_cols: vectorised grep for date
-  # patterns in columns that should never contain dates.
+  # --- Pass 2: fix "hidden" shifts ---
+  # Some rows have extra tabs but the rightmost real columns were already
+  # empty, so nothing spills into overflow columns — Pass 1 misses them.
+  # Instead we detect these by looking for type violations (e.g. a date
+  # value sitting in a non-date column), which signals that all columns
+  # from some point onward are shifted right.
+  # We pull the non_date_cols list from the shift_col_finder's closure
+  # (works when it was built by make_shift_finder) and do a fast vectorised
+  # grep across those columns before the expensive per-row loop.
   already_fixed <- c(shifted_rows, rows_to_drop)
-  # Extract the non_date_cols from shift_col_finder's closure (if built by make_shift_finder)
   finder_env <- environment(shift_col_finder)
   if (exists("non_date_cols", envir = finder_env)) {
     ndc <- get("non_date_cols", envir = finder_env)
@@ -255,6 +316,8 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
       suspect_rows <- dt[suspect_mask, n]
 
       if (length(suspect_rows) > 0L) {
+        # Try n_extra = 1, 2, 3 — we don't know how many extra tabs were
+        # inserted since there's no overflow to count, so we guess and check
         for (n_try in 1:3) {
           hidden_rows <- integer(0)
           for (rn in suspect_rows) {
@@ -279,6 +342,7 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
               }
               shift_col <- actual_col
             }
+            log_fix(rn, n_try, shift_col, "hidden", "fixed")
             shift_left_dt(dt, rn, shift_col, n_try)
           }
           suspect_rows <- setdiff(suspect_rows, hidden_rows)
@@ -297,5 +361,17 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
   }
 
   dt[, n := NULL]
-  dt
+
+  fixes <- if (length(fix_log) > 0L) do.call(rbind, fix_log) else
+    data.frame(
+      row_n = integer(), n_extra = integer(), shift_col = character(),
+      pass = character(), status = character(), stringsAsFactors = FALSE
+    )
+
+  message(sprintf(
+    "auto_fix_tab_shifts summary: %d fixed, %d dropped",
+    sum(fixes$status == "fixed"), sum(fixes$status == "dropped")
+  ))
+
+  list(dt = dt, fixes = fixes)
 }

@@ -18,7 +18,16 @@ custodyhistory_by_case <-
     col_types = custodyhistory_col_types
   ) |>
   as_tibble() |>
-  clean_eoir_cols() |>
+  clean_eoir_cols()
+
+# Validate columns before transforms
+custodyhistory_by_case |>
+  col_vals_not_null(IDNCUSTODY) |>
+  col_vals_not_null(IDNCASE) |>
+  col_vals_in_set(CUSTODY, c("D", "N", "R", NA))
+
+custodyhistory_by_case <-
+  custodyhistory_by_case |>
   janitor::clean_names() |>
   # convert to date to remove unused time information
   mutate(
@@ -26,6 +35,13 @@ custodyhistory_by_case <-
     datreleased = as.Date(datreleased) # no changes to missing
   ) |>
   arrange(idncase, datdetained, idncustody)
+
+# Validate date ordering (detained should precede release)
+custodyhistory_by_case |>
+  col_vals_expr(
+    expr(is.na(datdetained) | is.na(datreleased) | datdetained <= datreleased),
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  )
 
 setDT(custodyhistory_by_case)
 

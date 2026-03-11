@@ -286,9 +286,35 @@ cases <-
     )
   )
 
-# remove CSV read in errors based on a single variables
+# Validate final assembled dataset
+cases |>
+  col_vals_in_set(c_asy_type, c("E", "I", "J", NA)) |>
+  col_vals_in_set(case_type, c("DEP", "RMV", "BND", NA)) |>
+  col_vals_in_set(
+    lastbiadecisiontype, c("A", "L", "P", "R", "T", NA)
+  ) |>
+  col_vals_gte(length, 0, na_pass = TRUE,
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  ) |>
+  col_vals_between(
+    finalcompyear, 1990L, as.integer(format(Sys.Date(), "%Y")) + 1L,
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  ) |>
+  col_vals_not_null(idncase)
+
+# --- Flag rows with known source-data anomalies ---
 cases <-
-  cases |> filter(is.na(c_asy_type) | c_asy_type %in% c("E", "I", "J"))
+  cases |>
+  mutate(
+    data_flag = case_when(
+      !is.na(alien_state) & !grepl("^[A-Z]{2}$", alien_state) ~
+        "unusual_alien_state",
+      !is.na(detention_location) & grepl("^[0-9]+$", detention_location) ~
+        "unusual_detention_location",
+      TRUE ~ NA_character_
+    )
+  )
 
 arrow::write_feather(
   cases,
