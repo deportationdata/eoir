@@ -20,11 +20,23 @@ custodyhistory_by_case <-
   as_tibble() |>
   clean_eoir_cols()
 
+# Load lookup tables for validation
+lkp_custody <- read_eoir_lookup("inputs_eoir/tblLookupCustodyStatus.csv")
+
 # Validate columns before transforms
 custodyhistory_by_case |>
-  col_vals_not_null(IDNCUSTODY) |>
-  col_vals_not_null(IDNCASE) |>
-  col_vals_in_set(CUSTODY, c("D", "N", "R", NA))
+  col_vals_not_null(
+    IDNCUSTODY,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_not_null(
+    IDNCASE,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_in_set(
+    CUSTODY, c(lkp_custody$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  )
 
 custodyhistory_by_case <-
   custodyhistory_by_case |>

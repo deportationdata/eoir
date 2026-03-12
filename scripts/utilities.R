@@ -242,13 +242,34 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
   setkey(dt, n)
 
   overflow_cols <- grep("^V\\d+$", colnames(dt), value = TRUE)
+  n_overflow <- length(overflow_cols)
 
-  # --- Pass 1: fix rows with overflow columns (n_extra known from overflow) ---
+  # --- Pass 1: fix rows with overflow columns ---
+  # Detect by EITHER non-empty overflow content OR by having non-NA values
+
+  # that were shifted into overflow positions (i.e. overflow cols exist and
+  # the row's real columns show type violations). Empty overflow can happen
+  # when the extra tabs pushed already-empty trailing columns off the end.
   shifted_rows <- integer(0)
-  if (length(overflow_cols) > 0L) {
+  if (n_overflow > 0L) {
+    # Flag rows where ANY overflow column has content
     shifted_mask <- rep(FALSE, nrow(dt))
     for (vc in overflow_cols) {
       shifted_mask <- shifted_mask | has_content(dt[[vc]])
+    }
+    # Also flag rows where type violations exist (date in non-date col)
+    # even if the overflow columns are empty — this catches rows where
+    # trailing fields were already blank so nothing spilled into overflow.
+    finder_env <- environment(shift_col_finder)
+    if (exists("non_date_cols", envir = finder_env)) {
+      ndc <- intersect(
+        get("non_date_cols", envir = finder_env), colnames(dt)
+      )
+      date_rx <- "^[0-9]{4}-[0-9]{2}-[0-9]{2}"
+      for (col in ndc) {
+        shifted_mask <- shifted_mask |
+          grepl(date_rx, as.character(dt[[col]]))
+      }
     }
     shifted_rows <- dt[shifted_mask, n]
   }
@@ -268,6 +289,9 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
     for (vc in overflow_cols) {
       if (has_content(row_dt[[vc]])) n_extra <- n_extra + 1L
     }
+    # When overflow cols are all empty, we don't know n_extra from overflow
+    # alone — try n_extra = 1 as a starting point and iterate
+    if (n_extra == 0L) n_extra <- 1L
     shift_col <- shift_col_finder(row_dt, n_extra)
     if (is.na(shift_col)) {
       warning(sprintf(
@@ -288,17 +312,29 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
     }
     log_fix(rn, n_extra, shift_col, "overflow", "fixed")
     shift_left_dt(dt, rn, shift_col, n_extra)
+
+    # Re-check for remaining violations (multi-point shifts: extra tabs
+    # inserted at two or more separate places in the same row). After fixing
+    # the first shift, violations from subsequent insertions may remain.
+    # Cap at 3 retries — no real row has more than a few independent insertions.
+    for (retry in 1:3) {
+      row_dt <- dt[.(rn)]
+      retry_col <- shift_col_finder(row_dt, 1L)
+      if (is.na(retry_col)) break
+      if (grepl("^CONCAT_THEN_", retry_col)) {
+        actual_col <- sub("^CONCAT_THEN_", "", retry_col)
+        if (!is.null(pre_fix)) pre_fix(dt, rn, 1L)
+        retry_col <- actual_col
+      }
+      log_fix(rn, 1L, retry_col, "overflow-multi", "fixed")
+      shift_left_dt(dt, rn, retry_col, 1L)
+    }
   }
 
-  # --- Pass 2: fix "hidden" shifts ---
-  # Some rows have extra tabs but the rightmost real columns were already
-  # empty, so nothing spills into overflow columns — Pass 1 misses them.
-  # Instead we detect these by looking for type violations (e.g. a date
-  # value sitting in a non-date column), which signals that all columns
-  # from some point onward are shifted right.
-  # We pull the non_date_cols list from the shift_col_finder's closure
-  # (works when it was built by make_shift_finder) and do a fast vectorised
-  # grep across those columns before the expensive per-row loop.
+  # --- Pass 2: fix "hidden" shifts (no overflow columns at all) ---
+  # Some files have no overflow rows, but individual rows still have type
+  # violations (e.g. a date in a non-date column) indicating a mid-row shift.
+  # This pass catches shifts in files where max_fields == n_header.
   already_fixed <- c(shifted_rows, rows_to_drop)
   finder_env <- environment(shift_col_finder)
   if (exists("non_date_cols", envir = finder_env)) {
@@ -344,6 +380,21 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
             }
             log_fix(rn, n_try, shift_col, "hidden", "fixed")
             shift_left_dt(dt, rn, shift_col, n_try)
+
+            # Re-check for remaining violations (multi-point shifts).
+            # Cap at 3 — no real row has more than a few independent insertions.
+            for (retry in 1:3) {
+              row_dt2 <- dt[.(rn)]
+              retry_col <- shift_col_finder(row_dt2, 1L)
+              if (is.na(retry_col)) break
+              if (grepl("^CONCAT_THEN_", retry_col)) {
+                actual_col <- sub("^CONCAT_THEN_", "", retry_col)
+                if (!is.null(pre_fix)) pre_fix(dt, rn, 1L)
+                retry_col <- actual_col
+              }
+              log_fix(rn, 1L, retry_col, "hidden-multi", "fixed")
+              shift_left_dt(dt, rn, retry_col, 1L)
+            }
           }
           suspect_rows <- setdiff(suspect_rows, hidden_rows)
           already_fixed <- c(already_fixed, hidden_rows)

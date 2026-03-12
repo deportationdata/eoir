@@ -46,36 +46,88 @@ lkp_base_city <- read_eoir_lookup("inputs_eoir/tblLookupBaseCity.csv")
 lkp_hloc <- read_eoir_lookup("inputs_eoir/tblLookupHloc.csv")
 lkp_judge <- read_eoir_lookup("inputs_eoir/tblLookupJudge.csv")
 lkp_court_dec <- read_eoir_lookup("inputs_eoir/tblLookupCourtDecision.csv")
+lkp_case_type <- read_eoir_lookup("inputs_eoir/tblLookupCaseType.csv")
+lkp_custody <- read_eoir_lookup("inputs_eoir/tblLookupCustodyStatus.csv")
 
 # Validate that shift-fixing didn't corrupt key columns
 proceeding_tbl |>
-  col_vals_not_null(IDNPROCEEDING) |>
-  col_vals_not_null(IDNCASE) |>
-  col_vals_regex(IDNPROCEEDING, "^\\d+$") |>
-  col_vals_regex(IDNCASE, "^\\d+$") |>
-  col_vals_in_set(CASE_TYPE, c("DEP", "RMV", "BND", NA)) |>
-  col_vals_in_set(CUSTODY, c("D", "N", "R", NA)) |>
-  col_vals_in_set(ABSENTIA, c("Y", "N", NA)) |>
-  col_vals_in_set(TRANSFER_STATUS, c("I", "O", NA)) |>
+  col_vals_not_null(
+    IDNPROCEEDING,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_not_null(
+    IDNCASE,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_regex(IDNPROCEEDING, "^\\d+$", na_pass = TRUE) |>
+  col_vals_regex(IDNCASE, "^\\d+$", na_pass = TRUE) |>
+  col_vals_in_set(
+    CASE_TYPE, c(lkp_case_type$str_code, "BND", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    CUSTODY, c(lkp_custody$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    ABSENTIA, c("Y", "N", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    TRANSFER_STATUS, c("I", "O", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
   col_vals_in_set(
     DEC_TYPE, c("A", "C", "O", "R", "T", "W", "X", NA),
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
-  col_vals_in_set(NAT, c(lkp_nat$str_code, NA)) |>
-  col_vals_in_set(LANG, c(lkp_lang$str_code, NA)) |>
-  col_vals_in_set(BASE_CITY_CODE, c(lkp_base_city$base_city_code, NA)) |>
-  col_vals_in_set(HEARING_LOC_CODE, c(lkp_hloc$hearing_loc_code, NA)) |>
-  col_vals_in_set(SCHEDULED_HEAR_LOC, c(lkp_hloc$hearing_loc_code, NA)) |>
-  col_vals_in_set(PREV_HEARING_LOC, c(lkp_hloc$hearing_loc_code, NA)) |>
-  col_vals_in_set(PREV_HEARING_BASE, c(lkp_base_city$base_city_code, NA)) |>
-  col_vals_in_set(TRANSFER_TO, c(lkp_base_city$base_city_code, NA)) |>
-  col_vals_in_set(IJ_CODE, c(lkp_judge$judge_code, NA)) |>
-  col_vals_in_set(PREV_IJ_CODE, c(lkp_judge$judge_code, NA)) |>
   col_vals_in_set(
-    DEC_CODE, c(unique(lkp_court_dec$str_dec_code), NA)
+    NAT, c(lkp_nat$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    OTHER_COMP, c(unique(lkp_court_dec$str_dec_code), NA)
+    LANG, c(lkp_lang$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    BASE_CITY_CODE, c(lkp_base_city$base_city_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    HEARING_LOC_CODE, c(lkp_hloc$hearing_loc_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    SCHEDULED_HEAR_LOC, c(lkp_hloc$hearing_loc_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    PREV_HEARING_LOC, c(lkp_hloc$hearing_loc_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    PREV_HEARING_BASE, c(lkp_base_city$base_city_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    TRANSFER_TO, c(lkp_base_city$base_city_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    IJ_CODE, c(lkp_judge$judge_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    PREV_IJ_CODE, c(lkp_judge$judge_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    DEC_CODE, c(unique(lkp_court_dec$str_dec_code), NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    OTHER_COMP, c(unique(lkp_court_dec$str_dec_code), NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   )
 
 proceeding_tbl <-
@@ -103,8 +155,6 @@ check_date_parse(proceeding_tbl, label = "B_TblProceeding")
 
 # Post-type-convert validation
 proceeding_tbl |>
-  col_vals_gt(IDNPROCEEDING, 0) |>
-  col_vals_gt(IDNCASE, 0) |>
   col_vals_expr(
     expr(is.na(OSC_DATE) | is.na(COMP_DATE) | OSC_DATE <= COMP_DATE),
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)

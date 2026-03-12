@@ -49,7 +49,7 @@ appeals_tbl |>
   ) |>
   col_vals_in_set(
     strCaseType,
-    c(lkp_case_type$str_code, NA),
+    c(lkp_case_type$str_code, "BND", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(

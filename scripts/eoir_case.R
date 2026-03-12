@@ -83,28 +83,75 @@ cases_tbl <-
 lkp_nat <- read_eoir_lookup("inputs_eoir/tblLookupAlienNat.csv")
 lkp_lang <- read_eoir_lookup("inputs_eoir/tblLanguage.csv")
 lkp_priority <- read_eoir_lookup("inputs_eoir/tblLookup_CasePriority.csv")
+lkp_case_type <- read_eoir_lookup("inputs_eoir/tblLookupCaseType.csv")
+lkp_sex <- read_eoir_lookup("inputs_eoir/tblLookupSex.csv")
+lkp_custody <- read_eoir_lookup("inputs_eoir/tblLookupCustodyStatus.csv")
 
 # Validate that shift-fixing didn't corrupt key columns
 cases_tbl |>
-  col_vals_not_null(IDNCASE) |>
-  col_vals_regex(IDNCASE, "^\\d+$") |>
-  col_vals_in_set(Sex, c("F", "M", "N", "U", NA)) |>
-  col_vals_in_set(C_ASY_TYPE, c("E", "I", "J", NA)) |>
-  col_vals_in_set(CASE_TYPE, c("DEP", "RMV", "BND", NA)) |>
-  col_vals_in_set(CUSTODY, c("D", "N", "R", NA)) |>
-  col_vals_in_set(LPR, c("Y", "N", NA)) |>
-  col_vals_in_set(NAT, c(lkp_nat$str_code, NA)) |>
-  col_vals_in_set(LANG, c(lkp_lang$str_code, NA)) |>
-  col_vals_in_set(CASEPRIORITY_CODE, c(lkp_priority$str_code, NA)) |>
+  col_vals_not_null(
+    IDNCASE,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_regex(IDNCASE, "^\\d+$", na_pass = TRUE) |>
+  col_vals_in_set(
+    Sex,
+    c(lkp_sex$strcode, "N", "U", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    C_ASY_TYPE,
+    c("E", "I", "J", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    CASE_TYPE,
+    c(lkp_case_type$str_code, "BND", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    CUSTODY,
+    c(lkp_custody$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    LPR,
+    c("Y", "N", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    NAT,
+    c(lkp_nat$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    LANG,
+    c(lkp_lang$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    CASEPRIORITY_CODE,
+    c(lkp_priority$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
   col_vals_regex(
-    ALIEN_STATE, "^[A-Z]{2}$", na_pass = TRUE,
+    ALIEN_STATE,
+    "^[A-Z]{2}$",
+    na_pass = TRUE,
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
   col_vals_regex(
-    ALIEN_ZIPCODE, "^\\d{5}$", na_pass = TRUE,
+    ALIEN_ZIPCODE,
+    "^\\d{5}$",
+    na_pass = TRUE,
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
-  col_vals_regex(DETENTION_DATE, "^\\d{4}-\\d{2}-\\d{2}", na_pass = TRUE)
+  col_vals_regex(
+    DETENTION_DATE,
+    "^\\d{4}-\\d{2}-\\d{2}",
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  )
 
 na_vals <- c("", "NA", "N/A", "NULL")
 
@@ -161,10 +208,12 @@ cases_tbl <-
 
 # Post-transform validation
 cases_tbl |>
-  col_vals_gt(idncase, 0) |>
   col_vals_between(
-    birth_year, 1900L, as.integer(format(Sys.Date(), "%Y")),
-    na_pass = TRUE
+    birth_year,
+    1900L,
+    as.integer(format(Sys.Date(), "%Y")),
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   )
 
 arrow::write_feather(

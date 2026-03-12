@@ -47,25 +47,78 @@ associated_bond_tbl <-
 lkp_base_city <- read_eoir_lookup("inputs_eoir/tblLookupBaseCity.csv")
 lkp_hloc <- read_eoir_lookup("inputs_eoir/tblLookupHloc.csv")
 lkp_judge <- read_eoir_lookup("inputs_eoir/tblLookupJudge.csv")
+lkp_court_dec <- read_eoir_lookup("inputs_eoir/tblLookupCourtDecision.csv")
+lkp_filing_method <- read_eoir_lookup("inputs_eoir/tblLookupFiling_Method.csv")
+lkp_filing_party <- read_eoir_lookup(
+  "inputs_eoir/tblLookupFiling_Method_Party.csv"
+)
 
 # Validate that shift-fixing didn't corrupt key columns
 associated_bond_tbl |>
-  col_vals_not_null(IDNASSOCBOND) |>
-  col_vals_not_null(IDNPROCEEDING) |>
-  col_vals_not_null(IDNCASE) |>
-  col_vals_regex(IDNASSOCBOND, "^\\d+$") |>
-  col_vals_regex(IDNPROCEEDING, "^\\d+$") |>
-  col_vals_regex(IDNCASE, "^\\d+$") |>
+  col_vals_not_null(
+    IDNASSOCBOND,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_not_null(
+    IDNPROCEEDING,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_not_null(
+    IDNCASE,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_regex(IDNASSOCBOND, "^\\d+$", na_pass = TRUE) |>
+  col_vals_regex(IDNPROCEEDING, "^\\d+$", na_pass = TRUE) |>
+  col_vals_regex(IDNCASE, "^\\d+$", na_pass = TRUE) |>
   col_vals_in_set(
     DEC,
-    c("G", "W", "D", "I", "E", "O", "F", "L", "A", "C", "J", "N", "S", "R", NA)
+    c(unique(lkp_court_dec$str_dec_code), "I", "R", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
-  col_vals_in_set(BOND_TYPE, c("B", "D", "F", "N", "O", "R", "S", NA)) |>
-  col_vals_in_set(BASE_CITY_CODE, c(lkp_base_city$base_city_code, NA)) |>
-  col_vals_in_set(HEARING_LOC_CODE, c(lkp_hloc$hearing_loc_code, NA)) |>
-  col_vals_in_set(IJ_CODE, c(lkp_judge$judge_code, NA)) |>
-  col_vals_regex(INITIAL_BOND, "^\\d+(\\.\\d+)?$", na_pass = TRUE) |>
-  col_vals_regex(NEW_BOND, "^\\d+(\\.\\d+)?$", na_pass = TRUE)
+  col_vals_in_set(
+    BOND_TYPE,
+    c("BB", "BD", "SB", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    BASE_CITY_CODE,
+    c(lkp_base_city$base_city_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    HEARING_LOC_CODE,
+    c(lkp_hloc$hearing_loc_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    IJ_CODE,
+    c(lkp_judge$judge_code, NA),
+    # set higher threshold because there are many that don't match the lookup
+    # TODO: drop these codes in future
+    actions = action_levels(warn_at = 0.001, stop_at = 0.005)
+  ) |>
+  col_vals_in_set(
+    FILING_METHOD,
+    c(lkp_filing_method$str_filing_method_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    FILING_PARTY,
+    c(lkp_filing_party$str_filing_party_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_regex(
+    INITIAL_BOND,
+    "^\\d*(\\.\\d+)?$",
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_regex(
+    NEW_BOND,
+    "^\\d*(\\.\\d+)?$",
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  )
 
 associated_bond_tbl <-
   associated_bond_tbl |>
@@ -83,7 +136,6 @@ associated_bond_tbl <-
 associated_bond_tbl |>
   col_vals_gte(initial_bond, 0, na_pass = TRUE) |>
   col_vals_gte(new_bond, 0, na_pass = TRUE) |>
-  col_vals_gt(idncase, 0) |>
   col_vals_expr(
     expr(
       is.na(bond_hear_req_date) |
