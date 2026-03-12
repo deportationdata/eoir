@@ -14,15 +14,30 @@ lkp_charges <- read_eoir_lookup("inputs_eoir/tbllookupCharges.csv")
 
 # Validate before transforms
 charges_tbl |>
-  col_vals_not_null(IDNPRCDCHG) |>
-  col_vals_not_null(IDNCASE) |>
-  col_vals_not_null(IDNPROCEEDING) |>
-  col_vals_regex(IDNPRCDCHG, "^\\d+$") |>
-  col_vals_regex(IDNCASE, "^\\d+$") |>
-  col_vals_regex(IDNPROCEEDING, "^\\d+$") |>
+  col_vals_not_null(
+    IDNPRCDCHG,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_not_null(
+    IDNCASE,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_not_null(
+    IDNPROCEEDING,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_regex(IDNPRCDCHG, "^\\d+$", na_pass = TRUE) |>
+  col_vals_regex(IDNCASE, "^\\d+$", na_pass = TRUE) |>
+  col_vals_regex(IDNPROCEEDING, "^\\d+$", na_pass = TRUE) |>
   col_vals_not_null(CHARGE) |>
-  col_vals_in_set(CHARGE, c(lkp_charges$str_code, NA)) |>
-  col_vals_in_set(CHG_STATUS, c("N", "O", "S", "W", "s", "w", NA))
+  col_vals_in_set(
+    CHARGE, c(lkp_charges$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    CHG_STATUS, c("N", "O", "S", "W", "s", "w", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  )
 
 charges_tbl <-
   charges_tbl |>

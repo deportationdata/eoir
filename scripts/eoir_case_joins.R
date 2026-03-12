@@ -286,22 +286,50 @@ cases <-
     )
   )
 
+# Load additional lookup tables for final validation
+lkp_case_type <- read_eoir_lookup("inputs_eoir/tblLookupCaseType.csv")
+lkp_bia_dec_type <- read_eoir_lookup("inputs_eoir/tblLookupBIADecisionType.csv")
+lkp_custody <- read_eoir_lookup("inputs_eoir/tblLookupCustodyStatus.csv")
+
 # Validate final assembled dataset
 cases |>
-  col_vals_in_set(c_asy_type, c("E", "I", "J", NA)) |>
-  col_vals_in_set(case_type, c("DEP", "RMV", "BND", NA)) |>
+  col_vals_not_null(
+    idncase,
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
   col_vals_in_set(
-    lastbiadecisiontype, c("A", "L", "P", "R", "T", NA)
+    c_asy_type,
+    c("E", "I", "J", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
-  col_vals_gte(length, 0, na_pass = TRUE,
-    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  col_vals_in_set(
+    case_type,
+    c(lkp_case_type$str_code, "BND", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
-  col_vals_between(
-    finalcompyear, 1990L, as.integer(format(Sys.Date(), "%Y")) + 1L,
+  col_vals_in_set(
+    lastbiadecisiontype,
+    c(lkp_bia_dec_type$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    custody,
+    c(lkp_custody$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_gte(
+    length,
+    0,
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
-  col_vals_not_null(idncase)
+  col_vals_between(
+    finalcompyear,
+    1990L,
+    as.integer(format(Sys.Date(), "%Y")) + 1L,
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  )
 
 # --- Flag rows with known source-data anomalies ---
 cases <-
