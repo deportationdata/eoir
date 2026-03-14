@@ -53,3 +53,6 @@ inputs_eoir/
 
 # ignore tmp directory (intermediate files only)
 /tmp
+
+# Large temp download (4GB zip)
+eoir_data.zip
