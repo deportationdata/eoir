@@ -1,6 +1,7 @@
 library(tidyverse)
 library(tidylog)
 library(data.table)
+library(pointblank)
 
 source("scripts/utilities.R")
 
@@ -150,18 +151,17 @@ setDT(associated_bond_tbl)
 associated_bond_by_case <-
   associated_bond_tbl[,
     .(
-      lastbond_comp_date = last(bond_comp_date),
-      lastbond_hear_req_date = last(bond_hear_req_date),
-      lastdec = last(dec),
-      lastinitial_bond = last(initial_bond),
-      lastnew_bond = last(new_bond)
+      bond_completion_date = last(bond_comp_date),
+      bond_hearing_request_date = last(bond_hear_req_date),
+      bond_decision = last(dec),
+      initial_bond_amount = last(initial_bond),
+      new_bond_amount = last(new_bond)
     ),
     by = idncase
   ] |>
-  as_tibble() |>
   mutate(
-    lastdec = recode(
-      lastdec,
+    bond_decision = recode(
+      bond_decision,
       G = "AMELIORATION GRANTED",
       W = "BOND REQUEST WITHDRAWN",
       D = "AMELIORATION DENIED-NO JURISDICTION",
@@ -180,7 +180,7 @@ associated_bond_by_case <-
     )
   )
 
-arrow::write_feather(
+arrow::write_parquet(
   associated_bond_by_case,
-  "tmp/associated_bond_cases.feather"
+  "tmp/associated_bond_cases.parquet"
 )

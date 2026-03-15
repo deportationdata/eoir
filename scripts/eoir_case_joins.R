@@ -19,10 +19,10 @@ tblLookupJudge <- read_eoir_lookup("inputs_eoir/tblLookupJudge.csv")
 tblLookupNationality <- read_eoir_lookup("inputs_eoir/tblLookupNationality.csv")
 
 cases <-
-  arrow::read_feather("tmp/cases_from_proceedings.feather")
+  arrow::read_parquet("tmp/cases_from_proceedings.parquet")
 
 custodyhistory_by_case <-
-  arrow::read_feather("tmp/custodyhistory_cases.feather")
+  arrow::read_parquet("tmp/custodyhistory_cases.parquet")
 
 cases <-
   cases |>
@@ -31,7 +31,7 @@ cases <-
 rm(custodyhistory_by_case)
 gc()
 
-case_tbl <- arrow::read_feather("tmp/cases_tmp.feather")
+case_tbl <- arrow::read_parquet("tmp/cases_tmp.parquet")
 
 case_tbl <-
   case_tbl |>
@@ -107,7 +107,7 @@ cases <- cases |>
 stopifnot(nrow(cases) == n_before_zip)
 
 appeals_by_case <-
-  arrow::read_feather("tmp/appeals_cases.feather")
+  arrow::read_parquet("tmp/appeals_cases.parquet")
 
 cases <-
   cases |>
@@ -116,23 +116,22 @@ cases <-
 rm(appeals_by_case)
 gc()
 
-# replace finalcompdate=datbiadec if datbiadec > finalcompd & datbiadec < .
-# convert stata to r
+# replace final_completion_date with bia_decision_date if BIA decided later
 cases <-
   cases |>
   mutate(
     # keep the last IJ decision date
-    last_ij_decision = finalcompdate,
+    ij_final_date = final_completion_date,
     # combine to find the last completion date whether IJ or BIA
-    finalcompdate = if_else(
-      !is.na(datbiadec) & datbiadec > finalcompdate,
-      datbiadec,
-      finalcompdate
+    final_completion_date = if_else(
+      !is.na(bia_decision_date) & bia_decision_date > final_completion_date,
+      bia_decision_date,
+      final_completion_date
     )
   )
 
 court_applications_by_case <-
-  arrow::read_feather("tmp/court_applications_cases.feather")
+  arrow::read_parquet("tmp/court_applications_cases.parquet")
 
 cases <-
   cases |>
@@ -142,7 +141,7 @@ rm(court_applications_by_case)
 gc()
 
 associated_bond_by_case <-
-  arrow::read_feather("tmp/associated_bond_cases.feather")
+  arrow::read_parquet("tmp/associated_bond_cases.parquet")
 
 cases <-
   cases |>
@@ -151,137 +150,135 @@ cases <-
 rm(associated_bond_by_case)
 gc()
 
-charges_by_case <- arrow::read_feather("tmp/charges_cases.feather")
+charges_by_case <- arrow::read_parquet("tmp/charges_cases.parquet")
 
 cases <-
   cases |>
   left_join(charges_by_case, by = "idncase")
 
 other_comp_code_lookup <-
-  arrow::read_feather("tmp/other_comp_code_lookup.feather")
+  arrow::read_parquet("tmp/other_comp_code_lookup.parquet")
 
 dec_code_lookup <-
-  arrow::read_feather("tmp/dec_code_lookup.feather")
+  arrow::read_parquet("tmp/dec_code_lookup.parquet")
 
 cases <-
   cases |>
-  left_join(dec_code_lookup, by = c("case_type", "dec_code")) |>
-  left_join(other_comp_code_lookup, by = c("case_type", "other_comp"))
+  left_join(dec_code_lookup, by = c("case_type_code", "dec_code")) |>
+  left_join(other_comp_code_lookup, by = c("case_type_code", "other_comp"))
 
 cases <-
   cases |>
   mutate(
-    outcome = coalesce(outcome, other_completion),
-    relief = outcome %in% "Relief Granted",
-    termination = if_else(
-      outcome %in% c("Terminate", "Terminated"),
+    case_outcome = coalesce(case_outcome, other_completion),
+    relief_granted = case_outcome %in% "Relief Granted",
+    terminated = if_else(
+      case_outcome %in% c("Terminate", "Terminated"),
       TRUE,
       FALSE
     ),
-    finalcompyear = year(finalcompdate),
-    length = as.numeric(finalcompdate - osc_date),
+    final_completion_year = year(final_completion_date),
+    case_length_days = as.numeric(final_completion_date - nta_date),
     across(
       c(
-        asylumapp,
-        withholdapp,
-        catapp,
-        adjustapp,
-        nonlprcancelapp,
-        lprcancelapp,
-        anyreliefapp
+        asylum_application,
+        withholding_application,
+        cat_application,
+        adjustment_application,
+        non_lpr_cancellation_application,
+        lpr_cancellation_application,
+        any_relief_application
       ),
       \(x) replace_na(x, FALSE)
     )
   )
 
-# tblLanguage: lang -> str_code
+# tblLanguage: language -> str_code
 cases <- cases |>
   left_join(
     tblLanguage |>
       select(str_code, str_description) |>
-      rename(lang_desc = str_description),
-    by = c("lang" = "str_code")
+      rename(language_desc = str_description),
+    by = c("language" = "str_code")
   ) |>
-  select(-lang)
+  select(-language)
 
-# tblLookup_CasePriority: casepriority_code -> str_code
+# tblLookup_CasePriority: case_priority_code -> str_code
 cases <- cases |>
   left_join(
     tblLookup_CasePriority |>
       select(str_code, str_description) |>
-      rename(casepriority_desc = str_description),
-    by = c("casepriority_code" = "str_code")
-  ) |>
-  select(-casepriority_code)
+      rename(case_priority = str_description),
+    by = c("case_priority_code" = "str_code")
+  )
 
-# tblLookupAlienNat: nat -> str_code (tblLookupNationality also matches but this is more specific)
+# tblLookupAlienNat: nationality -> str_code
 cases <- cases |>
   left_join(
     tblLookupAlienNat |>
       select(str_code, str_description) |>
-      rename(nat_desc = str_description),
-    by = c("nat" = "str_code")
+      rename(nationality_desc = str_description),
+    by = c("nationality" = "str_code")
   ) |>
-  select(-nat)
+  select(-nationality)
 
-# tbllookupAppealType: lastappealtype -> str_appl_code
+# tbllookupAppealType: appeal_type -> str_appl_code
 cases <- cases |>
   left_join(
     tbllookupAppealType |>
       select(str_appl_code, str_appl_description) |>
-      rename(lastappealtype_desc = str_appl_description),
-    by = c("lastappealtype" = "str_appl_code")
+      rename(appeal_type_desc = str_appl_description),
+    by = c("appeal_type" = "str_appl_code")
   ) |>
-  select(-lastappealtype)
+  select(-appeal_type)
 
-# tblLookupBaseCity: firstcourt and finalcourt -> base_city_code (two joins)
+# tblLookupBaseCity: first_court and final_court -> base_city_code (two joins)
 cases <-
   cases |>
   left_join(
     tblLookupBaseCity |>
       transmute(
         base_city_code,
-        firstcourt_city_code = glue::glue("{base_city} ({base_city_code})")
+        first_court_desc = glue::glue("{base_city} ({base_city_code})")
       ),
-    by = c("firstcourt" = "base_city_code")
+    by = c("first_court" = "base_city_code")
   ) |>
   left_join(
     tblLookupBaseCity |>
       transmute(
         base_city_code,
-        finalcourt_city_code = glue::glue("{base_city} ({base_city_code})")
+        final_court_desc = glue::glue("{base_city} ({base_city_code})")
       ),
-    by = c("finalcourt" = "base_city_code")
+    by = c("final_court" = "base_city_code")
   ) |>
-  select(-firstcourt, -finalcourt)
+  select(-first_court, -final_court)
 
-# tblLookupBIADecision: lastbiadecision -> str_code
+# tblLookupBIADecision: bia_decision -> str_code
 cases <- cases |>
   left_join(
     tblLookupBIADecision |>
       select(str_code, str_description) |>
-      rename(lastbiadecision_desc = str_description),
-    by = c("lastbiadecision" = "str_code")
+      rename(bia_decision_desc = str_description),
+    by = c("bia_decision" = "str_code")
   ) |>
-  select(-lastbiadecision)
+  select(-bia_decision)
 
-# tblLookupJudge: ij_code -> judge_code
+# tblLookupJudge: judge_code -> judge_code
 cases <-
   cases |>
   left_join(
     tblLookupJudge |> select(judge_code, judge_name),
-    by = c("ij_code" = "judge_code")
-  ) |>
-  select(-ij_code)
+    by = "judge_code"
+  )
 
 # --- Data validation: NA-ify values from confirmed CSV read-in errors ---
 cases <-
   cases |>
   mutate(
-    # NA-ify bad lastbiadecisiontype values (source data error, not a valid code)
-    lastbiadecisiontype = if_else(
-      lastbiadecisiontype %in% c("A", "L", "P", "R", "T"),
-      lastbiadecisiontype,
+    # NA-ify bad bia_decision_type_code values (source data error, not a valid code)
+    bia_decision_type_code = if_else(
+      bia_decision_type_code %in% c("A", "L", "P", "R", "T"),
+      bia_decision_type_code,
       NA_character_
     )
   )
@@ -298,33 +295,33 @@ cases |>
     actions = action_levels(warn_at = 0.005, stop_at = 0.01)
   ) |>
   col_vals_in_set(
-    c_asy_type,
+    asylum_claim_type,
     c("E", "I", "J", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    case_type,
+    case_type_code,
     c(lkp_case_type$str_code, "BND", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    lastbiadecisiontype,
+    bia_decision_type_code,
     c(lkp_bia_dec_type$str_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    custody,
+    custody_code,
     c(lkp_custody$str_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_gte(
-    length,
+    case_length_days,
     0,
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
   col_vals_between(
-    finalcompyear,
+    final_completion_year,
     1990L,
     as.integer(format(Sys.Date(), "%Y")) + 1L,
     na_pass = TRUE,
@@ -336,8 +333,8 @@ cases <-
   cases |>
   mutate(
     data_flag = case_when(
-      !is.na(alien_state) & !grepl("^[A-Z]{2}$", alien_state) ~
-        "unusual_alien_state",
+      !is.na(respondent_state) & !grepl("^[A-Z]{2}$", respondent_state) ~
+        "unusual_respondent_state",
       !is.na(detention_location) & grepl("^[0-9]+$", detention_location) ~
         "unusual_detention_location",
       TRUE ~ NA_character_
@@ -346,7 +343,7 @@ cases <-
 
 arrow::write_feather(
   cases,
-  "outputs/cases.feather"
+  "outputs/cases.parquet"
 )
 
 arrow::write_parquet(

@@ -1,6 +1,7 @@
 library(tidyverse)
 library(tidylog)
 library(data.table)
+library(pointblank)
 
 source("scripts/utilities.R")
 
@@ -116,7 +117,7 @@ cases_tbl |>
   ) |>
   col_vals_in_set(
     LPR,
-    c("Y", "N", NA),
+    c("0", "1", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
@@ -197,14 +198,25 @@ cases_tbl <-
       address_changedon,
       zbond_mrg_flag,
       dco_location,
-      detention_facility_type
+      detention_facility_type,
+      # Drop fields that duplicate proceedings-level versions
+      custody,
+      nat,
+      lang,
+      case_type
     )
   ) |>
   mutate(
-    e_28_date = as.Date(e_28_date),
+    e28_date = as.Date(e_28_date),
     birth_year = as.integer(str_extract(c_birthdate, "\\d{4}"))
   ) |>
-  select(-c_birthdate)
+  select(-c_birthdate, -e_28_date) |>
+  rename(
+    respondent_state = alien_state,
+    asylum_claim_type = c_asy_type,
+    sex_code = sex,
+    case_priority_code = casepriority_code
+  )
 
 # Post-transform validation
 cases_tbl |>
@@ -216,7 +228,7 @@ cases_tbl |>
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   )
 
-arrow::write_feather(
+arrow::write_parquet(
   cases_tbl,
-  "tmp/cases_tmp.feather"
+  "tmp/cases_tmp.parquet"
 )

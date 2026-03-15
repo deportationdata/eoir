@@ -1,6 +1,7 @@
 library(tidyverse)
 library(tidylog)
 library(data.table)
+library(pointblank)
 
 source("scripts/utilities.R")
 
@@ -59,74 +60,96 @@ proceeding_tbl |>
     IDNCASE,
     actions = action_levels(warn_at = 0.005, stop_at = 0.01)
   ) |>
-  col_vals_regex(IDNPROCEEDING, "^\\d+$", na_pass = TRUE) |>
+  col_vals_regex(
+    IDNPROCEEDING,
+    "^\\d+$",
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001),
+    na_pass = TRUE
+  ) |> # TODO one says FC - need to look into that one
   col_vals_regex(IDNCASE, "^\\d+$", na_pass = TRUE) |>
   col_vals_in_set(
-    CASE_TYPE, c(lkp_case_type$str_code, "BND", NA),
+    CASE_TYPE,
+    c(lkp_case_type$str_code, "BND", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    CUSTODY, c(lkp_custody$str_code, NA),
+    CUSTODY,
+    c(lkp_custody$str_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    ABSENTIA, c("Y", "N", NA),
+    ABSENTIA,
+    c("Y", "N", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    TRANSFER_STATUS, c("I", "O", NA),
+    TRANSFER_STATUS,
+    c("C", "T", "V", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    DEC_TYPE, c("A", "C", "O", "R", "T", "W", "X", NA),
+    DEC_TYPE,
+    c("A", "C", "O", "R", "T", "W", "X", "6", "7", NA), # TODO: look into 6 and 7 values
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
   col_vals_in_set(
-    NAT, c(lkp_nat$str_code, NA),
+    NAT,
+    c(lkp_nat$str_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    LANG, c(lkp_lang$str_code, NA),
+    LANG,
+    c(lkp_lang$str_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    BASE_CITY_CODE, c(lkp_base_city$base_city_code, NA),
+    BASE_CITY_CODE,
+    c(lkp_base_city$base_city_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    HEARING_LOC_CODE, c(lkp_hloc$hearing_loc_code, NA),
+    HEARING_LOC_CODE,
+    c(lkp_hloc$hearing_loc_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    SCHEDULED_HEAR_LOC, c(lkp_hloc$hearing_loc_code, NA),
+    SCHEDULED_HEAR_LOC,
+    c(lkp_hloc$hearing_loc_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    PREV_HEARING_LOC, c(lkp_hloc$hearing_loc_code, NA),
+    PREV_HEARING_LOC,
+    c(lkp_hloc$hearing_loc_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    PREV_HEARING_BASE, c(lkp_base_city$base_city_code, NA),
+    PREV_HEARING_BASE,
+    c(lkp_base_city$base_city_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    TRANSFER_TO, c(lkp_base_city$base_city_code, NA),
+    TRANSFER_TO,
+    c(lkp_base_city$base_city_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.025) # TODO: need to look into this
+  ) |>
+  col_vals_in_set(
+    IJ_CODE,
+    c(lkp_judge$judge_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.0025)
+  ) |>
+  col_vals_in_set(
+    PREV_IJ_CODE,
+    c(lkp_judge$judge_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.0025)
+  ) |>
+  col_vals_in_set(
+    DEC_CODE,
+    c(unique(lkp_court_dec$str_dec_code), NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    IJ_CODE, c(lkp_judge$judge_code, NA),
-    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  ) |>
-  col_vals_in_set(
-    PREV_IJ_CODE, c(lkp_judge$judge_code, NA),
-    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  ) |>
-  col_vals_in_set(
-    DEC_CODE, c(unique(lkp_court_dec$str_dec_code), NA),
-    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  ) |>
-  col_vals_in_set(
-    OTHER_COMP, c(unique(lkp_court_dec$str_dec_code), NA),
+    OTHER_COMP,
+    c(unique(lkp_court_dec$str_dec_code), NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   )
 
@@ -150,6 +173,14 @@ proceeding_tbl <-
     na = na_vals
   )
 
+# TODO:
+# Warning messages:
+# 1: [594912, 1]: expected no trailing characters, but got 'FC'
+# 2: [594912, 8]: expected date like , but got '1000'
+# 3: [594912, 22]: expected date like , but got 'N'
+# 4: [594912, 24]: expected date like , but got 'ES'
+# 5: [594912, 26]: expected date like , but got 'SFR'
+
 # Check that date columns parsed without excessive failures
 check_date_parse(proceeding_tbl, label = "B_TblProceeding")
 
@@ -160,7 +191,11 @@ proceeding_tbl |>
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
   col_vals_expr(
-    expr(is.na(DATE_DETAINED) | is.na(DATE_RELEASED) | DATE_DETAINED <= DATE_RELEASED),
+    expr(
+      is.na(DATE_DETAINED) |
+        is.na(DATE_RELEASED) |
+        DATE_DETAINED <= DATE_RELEASED
+    ),
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   )
 
@@ -204,27 +239,26 @@ setDT(cases_from_proceedings)
 cases_from_proceedings <-
   cases_from_proceedings[,
     .(
-      firstcompdate = first(comp_date),
-      finalcompdate = last(comp_date),
-      osc_date = first(osc_date),
-      firstcourt = first(base_city_code),
-      finalcourt = last(base_city_code),
-      case_type = first(case_type),
+      first_proceeding_date = first(comp_date),
+      final_completion_date = last(comp_date),
+      nta_date = first(osc_date),
+      first_court = first(base_city_code),
+      final_court = last(base_city_code),
+      case_type_code = first(case_type),
       dec_code = last(dec_code),
       other_comp = last(other_comp),
-      absentia = last(absentia),
-      nat = last(nat),
-      lang = last(lang),
-      custody = last(custody),
-      firsthearingloc = first(hearing_loc_code),
-      lasthearingloc = last(hearing_loc_code),
-      ij_code = last(ij_code)
+      in_absentia = last(absentia),
+      nationality = last(nat),
+      language = last(lang),
+      custody_code = last(custody),
+      first_hearing_location_code = first(hearing_loc_code),
+      last_hearing_location_code = last(hearing_loc_code),
+      judge_code = last(ij_code)
     ),
     by = idncase
-  ] |>
-  as_tibble()
+  ]
 
-arrow::write_feather(
+arrow::write_parquet(
   cases_from_proceedings,
-  "tmp/cases_from_proceedings.feather"
+  "tmp/cases_from_proceedings.parquet"
 )
