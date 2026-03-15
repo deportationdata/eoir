@@ -21,12 +21,12 @@ jobs:
 
       - name: Download data
         run: |
-          mkdir -p inputs
+          mkdir -p inputs_eoir
           wget -O eoir_data.zip "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip"
 
       - name: Unzip data
         run: |
-          unzip -j eoir_data.zip -d inputs
+          unzip -j eoir_data.zip -d inputs_eoir
           rm eoir_data.zip
 
       - name: Process data
