@@ -322,7 +322,7 @@ cases |>
   ) |>
   col_vals_between(
     final_completion_year,
-    1990L,
+    1985L,
     as.integer(format(Sys.Date(), "%Y")) + 1L,
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
@@ -340,11 +340,6 @@ cases <-
       TRUE ~ NA_character_
     )
   )
-
-arrow::write_feather(
-  cases,
-  "outputs/cases.parquet"
-)
 
 arrow::write_parquet(
   cases,
