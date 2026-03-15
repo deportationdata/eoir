@@ -53,7 +53,7 @@ jobs:
       - name: Run PII check
         env:
           PII_SAMPLE_N: ""   # empty = full scan
-        run: python3 scripts/pii_check_presidio.py
+        run: python3 scripts/pii_check.py
 
       - name: Commit and push to branch
         id: commit
@@ -62,13 +62,13 @@ jobs:
           git config --local user.name "GitHub Action"
 
           git checkout -b eoir-update-$(date +%Y-%m-%d)
-          git add outputs/cases.feather outputs/pii_checks/
+          git add outputs/cases.parquet outputs/pii_checks/
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
             echo "new_data=false" >> $GITHUB_OUTPUT
           else
-            git commit -m "Update cases.feather [skip ci]"
+            git commit -m "Update cases.parquet [skip ci]"
             git pull --rebase origin main
             git push --set-upstream origin HEAD
             echo "new_data=true" >> $GITHUB_OUTPUT
