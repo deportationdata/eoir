@@ -51,80 +51,58 @@ SCORE_THRESHOLD = 0.4
 
 # --- Column classification ---
 # Columns to skip entirely (internal IDs, booleans, codes with no PII risk)
+# Only includes columns that appear in the processed cases.parquet output.
 SKIP_COLUMNS = {
-    # Numeric row IDs
-    "IDNCASE", "IDNPROCEEDING", "IDNASSOCBOND", "IDNMOTION", "IDNCASEID",
-    "idnAppeal", "idncase", "idnProceeding", "IDNPRCDCHG", "IDNCUSTODY",
-    "IDNPROCEEDINGAPPLN", "IDNSCHEDULE", "IDNREPSASSIGNED", "LNGSESSNID",
-    "PARENT_IDN",
-    # System metadata
-    "REC_TYPE", "GENERATION", "SUB_GENERATION",
-    "EOIRAttorneyID", "OldAttorneyID", "blnAttorneyActive", "Source_Flag",
-    "datCreatedOn", "datModifiedOn", "BLNPRIMEATTY", "BLNCLOCKOVERRIDE",
-    "BLNDELETED_Remove", "E_28_RECPTFLAG_Remove",
-    # Single-value / boolean-like
-    "ZBOND_MRG_FLAG", "APPEAL_RSVD", "APPEAL_NOT_FILED", "ABSENTIA",
-    "TRANSFER_STATUS", "LPR", "WU_MSG_Remove",
-    # Codes (short category codes, no PII)
-    "CUSTODY", "CASE_TYPE", "SITE_TYPE", "CAL_TYPE", "DEC_TYPE", "DEC_CODE",
-    "DEC", "CRIM_IND", "IHP", "AGGRAVATE_FELON", "CHG_STATUS", "APPL_CODE",
-    "APPL_DEC", "C_ASY_TYPE", "Sex", "SCHEDULE_TYPE", "NOTICE_CODE",
-    "O_CLOCK_OPTION", "ASSIGNMENT_PATH", "ADJ_RSN", "ADJ_MEDIUM", "ADJ_MSG",
-    "STRATTYLEVEL", "STRATTYTYPE", "PARENT_TABLE", "REL_CON", "INS_TA",
-    "BOND_TYPE", "FILING_METHOD", "FILING_PARTY", "BOND_HEARING_TELEPHONIC",
-    "STRFILINGPARTY", "STRFILINGMETHOD", "STRCERTOFSERVICECODE",
-    "strAppealCategory", "strAppealType", "strFiledBy", "strBIADecisionType",
-    "strCaseType", "strLang", "strNat", "strProceedingIHP", "strCustody",
-    "strProbono", "strDJScenario",
-    # Parquet processed fields that are codes/booleans
-    "case_type", "dec_code", "other_comp", "custody", "lastcustody",
-    "c_asy_type", "sex", "lastbiadecisiontype", "lastappealcategory",
-    "lastbiafiledby", "lastbiacustody", "pendingappeal", "lastdec",
-    "outcome", "other_completion", "relief", "termination",
-    "casepriority_desc", "lastappealtype_desc", "lastbiadecision_desc",
-    # Application indicators (boolean flags)
-    "absentia", "asylumapp", "withholdapp", "catapp", "adjustapp",
-    "nonlprcancelapp", "lprcancelapp", "anyreliefapp",
-    # Numeric aggregates (bond amounts, years, durations — not PII)
-    "lastinitial_bond", "lastnew_bond", "finalcompyear", "birth_year", "length",
-    # Aggregated from lookups (country/language names, not individual PII)
-    "lang_desc", "nat_desc",
-    "NAT", "LANG",
-    # Charge codes
-    "CHARGE",
+    # Numeric row ID
+    "idncase",
+    # Codes and short category fields
+    "case_type_code", "dec_code", "other_comp", "custody_code",
+    "asylum_claim_type", "sex_code", "case_priority_code",
+    "bia_decision_type_code", "appeal_category",
+    "appeal_filed_by_code", "custody_at_appeal_code",
+    # Boolean / binary indicators
+    "in_absentia", "pending_appeal", "relief_granted", "terminated",
+    "asylum_application", "withholding_application",
+    "cat_application", "adjustment_application",
+    "nonlpr_cancellation_application", "lpr_cancellation_application",
+    "any_relief_application",
+    # Recoded / lookup description fields (public category text, not PII)
+    "bond_decision", "case_outcome", "other_completion",
+    "case_priority", "appeal_type_desc", "bia_decision_desc",
+    "language_desc", "nationality_desc",
+    # Numeric aggregates (bond amounts, years, durations)
+    "initial_bond_amount", "new_bond_amount", "final_completion_year",
+    "birth_year", "case_length_days",
+    # Internal flag
+    "data_flag",
 }
 
 # Columns that ARE dates by design — we still scan them but exclude DATE_TIME
 # entity (since being a date is expected). We still check for SSN/phone/etc.
 DATE_COLUMN_PATTERNS = re.compile(
     r"(?i)"
-    r"(?:date|_date|dat[A-Z]|osc_date|comp_date|e_28|hearing_date|"
-    r"hearing_time|latest_hearing|latest_time|"
-    r"adj_date|adj_time|adj_elap|address_changedon|"
-    r"input_date|input_time|update_date|update_time|"
-    r"adj_time_start|venue_chg_granted|"
-    r"up_bond_date|bond_hear_req_date|decision_due_date|"
-    r"resp_due_date|motion_recd_date|datmotiondue|"
-    r"c_birthdate|c_release_date|release_month|release_year|"
-    r"firstcomp|finalcomp|firstdetained|lastreleased|"
-    r"last_ij_decision|lastbond_comp|datbiadec|datappealfiled|"
-    r"appl_recd_date|ins_ta_date)"
+    r"(?:nta_date|e28_date|date_of_entry|c_release_date|"
+    r"date_detained|date_released|detention_date|"
+    r"first_proceeding_date|final_completion_date|"
+    r"detention_start|detention_end|"
+    r"ij_final_date|bond_completion_date|"
+    r"bia_decision_date|appeal_filed_date|e27_date|"
+    r"bond_hearing_request_date)"
 )
 
 # Columns that contain location codes/names by design
 LOCATION_COLUMN_PATTERNS = re.compile(
     r"(?i)"
-    r"(?:city|state|zip|county|base_city|hearing_loc|"
-    r"scheduled_hear_loc|transfer_to|prev_hearing|"
-    r"update_site|detention_location|dco_location|"
-    r"correctional_fac|detention_facility|"
-    r"firsthearingloc|lasthearingloc|firstcourt|finalcourt)"
+    r"(?:respondent_state|detention_location|"
+    r"zip_city|zip_state|zip_county|"
+    r"first_hearing_location_code|last_hearing_location_code|"
+    r"first_court_desc|final_court_desc)"
 )
 
 # Columns that contain names by design (judges, attorneys — public officials,
 # not individual PII). We skip both PERSON and LOCATION for these.
 NAME_COLUMN_PATTERNS = re.compile(
-    r"(?i)(?:judge_name|ij_name|IJ_NAME|strAttorneyName|ATTY_NAME)"
+    r"(?i)(?:judge_name)"
 )
 
 # Columns that contain short structural codes (IJ codes, hearing location codes,
@@ -132,11 +110,8 @@ NAME_COLUMN_PATTERNS = re.compile(
 # for names/places. Only check high-value entities that should never appear here.
 CODE_COLUMN_PATTERNS = re.compile(
     r"(?i)"
-    r"(?:IJ_CODE|ij_code|BASE_CITY_CODE|base_city_code|"
-    r"HEARING_LOC_CODE|hearing_loc_code|PREV_IJ_CODE|prev_ij_code|"
-    r"PREV_HEARING_LOC|prev_hearing_loc|PREV_HEARING_BASE|"
-    r"SCHEDULED_HEAR_LOC|TRANSFER_TO|"
-    r"^charge_\d+$|^charges_all$|^CHARGE_\d+$)"
+    r"(?:^judge_code$|"
+    r"^charge_code_\d+$|^charges_all$)"
 )
 
 

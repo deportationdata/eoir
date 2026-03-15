@@ -88,7 +88,10 @@ read_eoir_tsv <- function(file, col_types = "character") {
       if (diff >= 5) {
         warning(sprintf(
           "read_eoir_tsv: %s row count mismatch (got %d, Count.txt says %d, diff=%d)",
-          tbl_name, nrow(dt), expected, diff
+          tbl_name,
+          nrow(dt),
+          expected,
+          diff
         ))
       }
     }
@@ -98,8 +101,11 @@ read_eoir_tsv <- function(file, col_types = "character") {
 
 #' Read an EOIR lookup table with standardized parameters.
 read_eoir_lookup <- function(file) {
+  # Read as raw bytes and strip embedded null bytes that cause readr warnings
+  raw_bytes <- readBin(file, "raw", file.info(file)$size)
+  raw_bytes <- raw_bytes[raw_bytes != as.raw(0L)]
   read_delim(
-    file,
+    I(rawToChar(raw_bytes)),
     delim = "\t",
     col_types = cols(.default = col_character()),
     na = c("", "NA", "NULL"),
@@ -206,7 +212,10 @@ check_date_parse <- function(df, max_fail_rate = 0.001, label = "data") {
     if (fail_rate > max_fail_rate) {
       stop(sprintf(
         "check_date_parse [%s]: %d parse failures (%.2f%% of %d rows). First few: %s",
-        label, nrow(p), fail_rate * 100, nrow(df),
+        label,
+        nrow(p),
+        fail_rate * 100,
+        nrow(df),
         paste(head(paste(p$col, p$expected, sep = ": "), 10), collapse = "; ")
       ))
     }
@@ -232,8 +241,12 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
   fix_log <- list()
   log_fix <- function(row_n, n_extra, shift_col, pass, status) {
     fix_log[[length(fix_log) + 1L]] <<- data.frame(
-      row_n = row_n, n_extra = n_extra, shift_col = shift_col,
-      pass = pass, status = status, stringsAsFactors = FALSE
+      row_n = row_n,
+      n_extra = n_extra,
+      shift_col = shift_col,
+      pass = pass,
+      status = status,
+      stringsAsFactors = FALSE
     )
   }
 
@@ -263,7 +276,8 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
     finder_env <- environment(shift_col_finder)
     if (exists("non_date_cols", envir = finder_env)) {
       ndc <- intersect(
-        get("non_date_cols", envir = finder_env), colnames(dt)
+        get("non_date_cols", envir = finder_env),
+        colnames(dt)
       )
       date_rx <- "^[0-9]{4}-[0-9]{2}-[0-9]{2}"
       for (col in ndc) {
@@ -291,7 +305,9 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
     }
     # When overflow cols are all empty, we don't know n_extra from overflow
     # alone — try n_extra = 1 as a starting point and iterate
-    if (n_extra == 0L) n_extra <- 1L
+    if (n_extra == 0L) {
+      n_extra <- 1L
+    }
     shift_col <- shift_col_finder(row_dt, n_extra)
     if (is.na(shift_col)) {
       warning(sprintf(
@@ -320,10 +336,14 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
     for (retry in 1:3) {
       row_dt <- dt[.(rn)]
       retry_col <- shift_col_finder(row_dt, 1L)
-      if (is.na(retry_col)) break
+      if (is.na(retry_col)) {
+        break
+      }
       if (grepl("^CONCAT_THEN_", retry_col)) {
         actual_col <- sub("^CONCAT_THEN_", "", retry_col)
-        if (!is.null(pre_fix)) pre_fix(dt, rn, 1L)
+        if (!is.null(pre_fix)) {
+          pre_fix(dt, rn, 1L)
+        }
         retry_col <- actual_col
       }
       log_fix(rn, 1L, retry_col, "overflow-multi", "fixed")
@@ -386,10 +406,14 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
             for (retry in 1:3) {
               row_dt2 <- dt[.(rn)]
               retry_col <- shift_col_finder(row_dt2, 1L)
-              if (is.na(retry_col)) break
+              if (is.na(retry_col)) {
+                break
+              }
               if (grepl("^CONCAT_THEN_", retry_col)) {
                 actual_col <- sub("^CONCAT_THEN_", "", retry_col)
-                if (!is.null(pre_fix)) pre_fix(dt, rn, 1L)
+                if (!is.null(pre_fix)) {
+                  pre_fix(dt, rn, 1L)
+                }
                 retry_col <- actual_col
               }
               log_fix(rn, 1L, retry_col, "hidden-multi", "fixed")
@@ -413,15 +437,23 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
 
   dt[, n := NULL]
 
-  fixes <- if (length(fix_log) > 0L) do.call(rbind, fix_log) else
+  fixes <- if (length(fix_log) > 0L) {
+    do.call(rbind, fix_log)
+  } else {
     data.frame(
-      row_n = integer(), n_extra = integer(), shift_col = character(),
-      pass = character(), status = character(), stringsAsFactors = FALSE
+      row_n = integer(),
+      n_extra = integer(),
+      shift_col = character(),
+      pass = character(),
+      status = character(),
+      stringsAsFactors = FALSE
     )
+  }
 
   message(sprintf(
     "auto_fix_tab_shifts summary: %d fixed, %d dropped",
-    sum(fixes$status == "fixed"), sum(fixes$status == "dropped")
+    sum(fixes$status == "fixed"),
+    sum(fixes$status == "dropped")
   ))
 
   list(dt = dt, fixes = fixes)

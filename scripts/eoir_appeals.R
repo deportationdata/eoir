@@ -1,6 +1,7 @@
 library(tidyverse)
 library(tidylog)
 library(data.table)
+library(pointblank)
 
 source("scripts/utilities.R")
 
@@ -8,6 +9,9 @@ appeals_tbl <-
   read_eoir_tsv("inputs_eoir/tblAppeal.csv") |>
   as_tibble() |>
   clean_eoir_cols()
+
+# check number of rows in file
+# system("wc -l inputs_eoir/tblAppeal.csv")
 
 # Load lookup tables for validation
 lkp_bia_dec <- read_eoir_lookup("inputs_eoir/tblLookupBIADecision.csv")
@@ -98,25 +102,24 @@ setDT(appeals_tbl)
 appeals_by_case <-
   appeals_tbl[,
     .(
-      lastbiadecision = last(str_bia_decision),
-      lastbiadecisiontype = last(str_bia_decision_type),
-      lastappealcategory = last(str_appeal_category),
-      lastappealtype = last(str_appeal_type),
-      lastbiafiledby = last(str_filed_by),
-      lastbiacustody = last(str_custody),
-      last_e_27date = last(dat_attorney_e27),
-      datbiadec = last(datbiadec),
-      datappealfiled = last(datappealfiled),
-      pendingappeal = case_when(
+      bia_decision = last(str_bia_decision),
+      bia_decision_type_code = last(str_bia_decision_type),
+      appeal_category = last(str_appeal_category),
+      appeal_type = last(str_appeal_type),
+      appeal_filed_by_code = last(str_filed_by),
+      custody_at_appeal_code = last(str_custody),
+      e27_date = last(dat_attorney_e27),
+      bia_decision_date = last(datbiadec),
+      appeal_filed_date = last(datappealfiled),
+      pending_appeal = case_when(
         any(is.na(datbiadec) & !is.na(datappealfiled)) ~ TRUE,
         TRUE ~ FALSE
       )
     ),
     by = .(idncase)
-  ] |>
-  as_tibble()
+  ]
 
-arrow::write_feather(
+arrow::write_parquet(
   appeals_by_case,
-  "tmp/appeals_cases.feather"
+  "tmp/appeals_cases.parquet"
 )
