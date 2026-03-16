@@ -40,7 +40,6 @@ from presidio_analyzer import (
 # Configuration
 # ---------------------------------------------------------------------------
 PARQUET_FILE = "outputs/cases.parquet"
-OUTPUT_DIR = "outputs/pii_checks"
 
 # Sample size — read from PII_SAMPLE_N env var if set; empty string = full scan
 _sample_env = os.environ.get("PII_SAMPLE_N", "50000")
@@ -139,13 +138,12 @@ ENTITIES_NO_DATETIME = [
     "CREDIT_CARD", "URL", "IP_ADDRESS", "A_NUMBER", "DOB_PATTERN", "FULL_NAME",
 ]
 
-# For "expected_location" columns: skip LOCATION, PERSON, and DATE_TIME. City
-# names like "Morrow", "Winters", "Friday" trigger DATE_TIME; "Monroe",
-# "Hamilton" trigger PERSON. No individual name or date string should ever
-# appear in a city/county/zip/hearing-location column.
+# For "expected_location" columns: skip LOCATION, PERSON, DATE_TIME, and URL.
+# City names trigger PERSON/DATE_TIME; abbreviations with periods in facility
+# names (e.g. "CORR.CENTER", "S.LA", "P.O.BOX") trigger URL false positives.
 ENTITIES_NO_LOCATION = [
     "EMAIL_ADDRESS", "US_SSN", "US_ITIN",
-    "CREDIT_CARD", "URL", "IP_ADDRESS", "A_NUMBER", "DOB_PATTERN",
+    "CREDIT_CARD", "IP_ADDRESS", "A_NUMBER", "DOB_PATTERN",
 ]
 
 # For "expected_name" columns: skip PERSON, LOCATION, and DATE_TIME. Judge
@@ -371,8 +369,6 @@ def scan_dataframe(analyzer, df, label, score_threshold=0.4):
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
     print("Initializing Presidio analyzer...")
     t0 = time.time()
     analyzer = create_analyzer()
@@ -407,13 +403,6 @@ def main():
 
     if not all_results:
         print("\nNo PII detected!")
-        # Write empty artifacts so CI always has files to commit
-        out_file = os.path.join(OUTPUT_DIR, "presidio_pii_findings.csv")
-        summary_file = os.path.join(OUTPUT_DIR, "presidio_pii_summary.csv")
-        pd.DataFrame(columns=["column", "entity_type", "match", "score", "full_value", "source"]).to_csv(out_file, index=False)
-        pd.DataFrame([{"source": "all", "entity_type": "none", "column": "all", "count": 0, "avg_score": 0.0, "examples": "", "status": "clean"}]).to_csv(summary_file, index=False)
-        print(f"Detailed: {out_file}")
-        print(f"Summary:  {summary_file}")
         return
 
     results = pd.concat(all_results, ignore_index=True)
@@ -437,13 +426,14 @@ def main():
               f"{row['count']} (avg score {row['avg_score']:.2f})")
         print(f"    e.g.: {row['examples'][:120]}")
 
-    # Save
-    out_file = os.path.join(OUTPUT_DIR, "presidio_pii_findings.csv")
-    results.to_csv(out_file, index=False)
-    summary_file = os.path.join(OUTPUT_DIR, "presidio_pii_summary.csv")
-    summary.to_csv(summary_file, index=False)
-    print(f"\nDetailed: {out_file}")
-    print(f"Summary:  {summary_file}")
+    # Fail loudly so CI never commits data containing PII
+    raise SystemExit(
+        f"\n{'!' * 60}\n"
+        f"PII CHECK FAILED: {len(results)} finding(s) detected.\n"
+        f"Review the summary above and fix the data or update column "
+        f"classifications before merging.\n"
+        f"{'!' * 60}"
+    )
 
 
 if __name__ == "__main__":

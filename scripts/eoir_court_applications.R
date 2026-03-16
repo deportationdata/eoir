@@ -5,8 +5,20 @@ library(pointblank)
 
 source("scripts/utilities.R")
 
+court_appln_shift_finder <- make_shift_finder(
+  date_cols = c("APPL_RECD_DATE"),
+  non_date_cols = c("APPL_CODE", "APPL_DEC")
+)
+
+court_applications_raw <- read_eoir_tsv("inputs_eoir/tbl_Court_Appln.csv")
+
+appln_fix_result <- auto_fix_tab_shifts(
+  court_applications_raw,
+  court_appln_shift_finder
+)
+
 court_applications_tbl <-
-  read_eoir_tsv("inputs_eoir/tbl_Court_Appln.csv") |>
+  appln_fix_result$dt |>
   as_tibble() |>
   clean_eoir_cols()
 
@@ -33,14 +45,13 @@ court_applications_tbl |>
   col_vals_regex(IDNCASE, "^\\d+$", na_pass = TRUE) |>
   col_vals_in_set(
     APPL_CODE,
-    c(lkp_appln$strcode, "????", NA), # TODO: why is this ???? here and not in the lookup table?
+    c(lkp_appln$strcode, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.005)
   ) |>
   col_vals_in_set(
     APPL_DEC,
-    c(lkp_appl_dec$str_court_appln_dec_code, "N", NA), # TODO: why is N here and not in the lookup table?
-    # TODO: dates in APPL_DEC that shouldn't be there
-    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+    c(lkp_appl_dec$str_court_appln_dec_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.005)
   ) |>
   col_vals_regex(
     APPL_RECD_DATE,
