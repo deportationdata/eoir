@@ -63,7 +63,7 @@ jobs:
           git config --local user.name "GitHub Action"
 
           git checkout -b eoir-update-$(date +%Y-%m-%d)
-          git add outputs/cases.parquet outputs/pii_checks/
+          git add outputs/cases.parquet
 
           if git diff --cached --quiet; then
             echo "No changes to commit"

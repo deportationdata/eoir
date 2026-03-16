@@ -9,8 +9,8 @@ cases_tbl <- read_eoir_tsv("inputs_eoir/A_TblCase.csv")
 
 # Fix mid-row tab shifts
 # Two patterns: (1) shifts near ALIEN_CITY/STATE, (2) shifts elsewhere
-case_generic_finder <- make_shift_finder(
-  date_cols = c(
+case_shift_finder <- local({
+  date_cols <- c(
     "E_28_DATE",
     "LATEST_HEARING",
     "UP_BOND_DATE",
@@ -21,8 +21,8 @@ case_generic_finder <- make_shift_finder(
     "DATE_RELEASED",
     "DETENTION_DATE",
     "C_BIRTHDATE"
-  ),
-  non_date_cols = c(
+  )
+  non_date_cols <- c(
     "Sex",
     "CUSTODY",
     "NAT",
@@ -35,31 +35,32 @@ case_generic_finder <- make_shift_finder(
     "DCO_LOCATION",
     "DETENTION_FACILITY_TYPE"
   )
-)
+  generic_finder <- make_shift_finder(date_cols, non_date_cols)
 
-case_shift_finder <- function(row_dt, n_extra) {
-  # First try the ALIEN_CITY/STATE pattern (needs special CONCAT handling)
-  alien_zip <- trimws(as.character(row_dt[["ALIEN_ZIPCODE"]]))
-  alien_state <- trimws(as.character(row_dt[["ALIEN_STATE"]]))
-  alien_city <- trimws(as.character(row_dt[["ALIEN_CITY"]]))
-  if (
-    !is.na(alien_zip) && nchar(alien_zip) > 0 && grepl("^[A-Z]{2}$", alien_zip)
-  ) {
-    if (is.na(alien_city) || nchar(alien_city) == 0) {
-      return("ALIEN_CITY")
-    }
+  function(row_dt, n_extra) {
+    # First try the ALIEN_CITY/STATE pattern (needs special CONCAT handling)
+    alien_zip <- trimws(as.character(row_dt[["ALIEN_ZIPCODE"]]))
+    alien_state <- trimws(as.character(row_dt[["ALIEN_STATE"]]))
+    alien_city <- trimws(as.character(row_dt[["ALIEN_CITY"]]))
     if (
-      !is.na(alien_state) &&
-        nchar(alien_state) > 0 &&
-        !grepl("^[A-Z]{2}$", alien_state)
+      !is.na(alien_zip) && nchar(alien_zip) > 0 && grepl("^[A-Z]{2}$", alien_zip)
     ) {
-      return("CONCAT_THEN_ALIEN_STATE")
+      if (is.na(alien_city) || nchar(alien_city) == 0) {
+        return("ALIEN_CITY")
+      }
+      if (
+        !is.na(alien_state) &&
+          nchar(alien_state) > 0 &&
+          !grepl("^[A-Z]{2}$", alien_state)
+      ) {
+        return("CONCAT_THEN_ALIEN_STATE")
+      }
+      return("ALIEN_STATE")
     }
-    return("ALIEN_STATE")
+    # Fall back to generic date/non-date mismatch detection
+    generic_finder(row_dt, n_extra)
   }
-  # Fall back to generic date/non-date mismatch detection
-  case_generic_finder(row_dt, n_extra)
-}
+})
 
 case_pre_fix <- function(dt, row_n, n_extra) {
   i <- dt[.(row_n), which = TRUE]

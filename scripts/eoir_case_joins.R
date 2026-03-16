@@ -3,6 +3,20 @@ library(tidylog)
 
 source("scripts/utilities.R")
 
+# Join a lookup table and optionally drop the join key from the result
+join_lookup <- function(df, lookup, by_col, code_col, desc_col, new_name,
+                        drop = TRUE) {
+  result <- df |>
+    left_join(
+      lookup |>
+        select(all_of(c(code_col, desc_col))) |>
+        rename(!!new_name := all_of(desc_col)),
+      by = setNames(code_col, by_col)
+    )
+  if (drop) result <- result |> select(-all_of(by_col))
+  result
+}
+
 tblLanguage <- read_eoir_lookup("inputs_eoir/tblLanguage.csv")
 tblLookup_CasePriority <- read_eoir_lookup(
   "inputs_eoir/tblLookup_CasePriority.csv"
@@ -193,83 +207,28 @@ cases <-
     )
   )
 
-# tblLanguage: language -> str_code
+# Resolve code columns to human-readable descriptions via lookup tables
 cases <- cases |>
-  left_join(
-    tblLanguage |>
-      select(str_code, str_description) |>
-      rename(language_desc = str_description),
-    by = c("language" = "str_code")
-  ) |>
-  select(-language)
+  join_lookup(tblLanguage, "language", "str_code", "str_description", "language_desc") |>
+  join_lookup(tblLookup_CasePriority, "case_priority_code", "str_code", "str_description", "case_priority", drop = FALSE) |>
+  join_lookup(tblLookupAlienNat, "nationality", "str_code", "str_description", "nationality_desc") |>
+  join_lookup(tbllookupAppealType, "appeal_type", "str_appl_code", "str_appl_description", "appeal_type_desc") |>
+  join_lookup(tblLookupBIADecision, "bia_decision", "str_code", "str_description", "bia_decision_desc")
 
-# tblLookup_CasePriority: case_priority_code -> str_code
+# tblLookupBaseCity: two joins (first_court + final_court) with formatted labels
+base_city_desc <- tblLookupBaseCity |>
+  transmute(base_city_code, court_desc = glue::glue("{base_city} ({base_city_code})"))
+
 cases <- cases |>
-  left_join(
-    tblLookup_CasePriority |>
-      select(str_code, str_description) |>
-      rename(case_priority = str_description),
-    by = c("case_priority_code" = "str_code")
-  )
-
-# tblLookupAlienNat: nationality -> str_code
-cases <- cases |>
-  left_join(
-    tblLookupAlienNat |>
-      select(str_code, str_description) |>
-      rename(nationality_desc = str_description),
-    by = c("nationality" = "str_code")
-  ) |>
-  select(-nationality)
-
-# tbllookupAppealType: appeal_type -> str_appl_code
-cases <- cases |>
-  left_join(
-    tbllookupAppealType |>
-      select(str_appl_code, str_appl_description) |>
-      rename(appeal_type_desc = str_appl_description),
-    by = c("appeal_type" = "str_appl_code")
-  ) |>
-  select(-appeal_type)
-
-# tblLookupBaseCity: first_court and final_court -> base_city_code (two joins)
-cases <-
-  cases |>
-  left_join(
-    tblLookupBaseCity |>
-      transmute(
-        base_city_code,
-        first_court_desc = glue::glue("{base_city} ({base_city_code})")
-      ),
-    by = c("first_court" = "base_city_code")
-  ) |>
-  left_join(
-    tblLookupBaseCity |>
-      transmute(
-        base_city_code,
-        final_court_desc = glue::glue("{base_city} ({base_city_code})")
-      ),
-    by = c("final_court" = "base_city_code")
-  ) |>
+  left_join(base_city_desc |> rename(first_court_desc = court_desc),
+            by = c("first_court" = "base_city_code")) |>
+  left_join(base_city_desc |> rename(final_court_desc = court_desc),
+            by = c("final_court" = "base_city_code")) |>
   select(-first_court, -final_court)
 
-# tblLookupBIADecision: bia_decision -> str_code
+# tblLookupJudge
 cases <- cases |>
-  left_join(
-    tblLookupBIADecision |>
-      select(str_code, str_description) |>
-      rename(bia_decision_desc = str_description),
-    by = c("bia_decision" = "str_code")
-  ) |>
-  select(-bia_decision)
-
-# tblLookupJudge: judge_code -> judge_code
-cases <-
-  cases |>
-  left_join(
-    tblLookupJudge |> select(judge_code, judge_name),
-    by = "judge_code"
-  )
+  left_join(tblLookupJudge |> select(judge_code, judge_name), by = "judge_code")
 
 # --- Data validation: NA-ify values from confirmed CSV read-in errors ---
 cases <-
