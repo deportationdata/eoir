@@ -1,14 +1,12 @@
 #!/bin/sh
 set -e
 
-# Rscript scripts/check_new_release.R
+mkdir -p inputs_eoir
+curl "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip" -o eoir_data.zip
 
-# mkdir -p inputs
-# curl "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip" -o eoir_data.zip
-
-# unzip -o -j eoir_data.zip -d inputs
-# # rm eoir_data.zip
-# mkdir -p tmp
+unzip -o -j eoir_data.zip -d inputs_eoir
+rm eoir_data.zip
+mkdir -p tmp
 
 Rscript scripts/eoir_appeals.R
 Rscript scripts/eoir_associated_bond.R

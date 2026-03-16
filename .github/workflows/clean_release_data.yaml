@@ -28,6 +28,7 @@ jobs:
         run: |
           unzip -j eoir_data.zip -d inputs_eoir
           rm eoir_data.zip
+          mkdir -p tmp
 
       - name: Process data
         run: |
