@@ -3,8 +3,6 @@ library(tidylog)
 library(data.table)
 library(pointblank)
 
-stop("fix the mid-row tab shifts in this file before running")
-
 source("scripts/utilities.R")
 
 court_applications_tbl <-
