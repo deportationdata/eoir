@@ -7,6 +7,7 @@ curl "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip" -o eoir_data.zi
 unzip -o -j eoir_data.zip -d inputs_eoir
 rm eoir_data.zip
 mkdir -p tmp
+mkdir -p outputs
 
 Rscript scripts/eoir_appeals.R
 Rscript scripts/eoir_associated_bond.R
