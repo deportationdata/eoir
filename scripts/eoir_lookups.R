@@ -1,10 +1,10 @@
 library(tidyverse)
 library(tidylog)
 
+source("scripts/utilities.R")
+
 court_decision_lookup <-
-  data.table::fread("inputs_eoir/tblLookupCourtDecision.csv") |>
-  as_tibble() |>
-  janitor::clean_names()
+  read_eoir_lookup("inputs_eoir/tblLookupCourtDecision.csv")
 
 dec_code_lookup <-
   court_decision_lookup |>

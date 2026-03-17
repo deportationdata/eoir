@@ -24,15 +24,15 @@ charges_tbl <-
 charges_tbl |>
   col_vals_not_null(
     IDNPRCDCHG,
-    actions = action_levels(warn_at = 0.005, stop_at = 0.001)
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
   ) |>
   col_vals_not_null(
     IDNCASE,
-    actions = action_levels(warn_at = 0.005, stop_at = 0.001)
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
   ) |>
   col_vals_not_null(
     IDNPROCEEDING,
-    actions = action_levels(warn_at = 0.005, stop_at = 0.001)
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
   ) |>
   col_vals_regex(IDNPRCDCHG, "^\\d+$", na_pass = TRUE) |>
   col_vals_regex(IDNCASE, "^\\d+$", na_pass = TRUE) |>
@@ -74,10 +74,12 @@ charges_tbl <-
 # e.g. "212a6Ci" -> "212(a)(6)(C)(i)", "237a2Biv" -> "237(a)(2)(B)(iv)"
 charges_tbl <- charges_tbl |>
   mutate(
+    # first remove any punctuation and white space from the original charge string to get a clean code to parse
+    charge_str = str_remove_all(charge, "[[:punct:]\\s]+"),
     # Extract the numeric INA section prefix (e.g. "212", "237")
-    section = str_extract(charge, "^\\d+"),
+    section = str_extract(charge_str, "^\\d+"),
     # Parse the subsection portion into parenthesized citation format
-    remainder = str_remove(charge, "^\\d+") |>
+    remainder = str_remove(charge_str, "^\\d+") |>
       # Lowercase the first letter when followed by a digit (e.g. "A6" -> "a6")
       # since the first subsection letter is always lowercase in INA citations
       str_replace("^[A-Z](?=[0-9])", "a") |>
