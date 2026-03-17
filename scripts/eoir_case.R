@@ -212,7 +212,13 @@ cases_tbl <-
       custody,
       nat,
       lang,
-      case_type
+      case_type,
+      # Drop fields not needed in final output
+      c_release_date,
+      date_detained,
+      date_released,
+      detention_date,
+      detention_location
     )
   ) |>
   mutate(

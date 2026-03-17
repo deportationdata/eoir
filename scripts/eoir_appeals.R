@@ -151,10 +151,7 @@ appeals_by_case <-
       e27_date = last(e27_date),
       bia_decision_date = last(bia_decision_date),
       appeal_filed_date = last(appeal_filed_date),
-      pending_appeal = case_when(
-        any(is.na(bia_decision_date) & !is.na(appeal_filed_date)) ~ TRUE,
-        TRUE ~ FALSE
-      )
+      pending_appeal = any(is.na(bia_decision_date) & !is.na(appeal_filed_date))
     ),
     by = .(idncase)
   ]
