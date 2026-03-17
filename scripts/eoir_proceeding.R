@@ -33,8 +33,6 @@ proc_shift_finder <- make_shift_finder(
 proc_fix_result <- auto_fix_tab_shifts(proceeding_tbl, proc_shift_finder)
 proceeding_tbl <- proc_fix_result$dt
 
-na_vals <- c("", "NA", "N/A", "NULL")
-
 proceeding_tbl <-
   proceeding_tbl |>
   as_tibble() |>
@@ -151,7 +149,8 @@ proceeding_tbl |>
     OTHER_COMP,
     c(unique(lkp_court_dec$str_dec_code), NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  )
+  ) |>
+  invisible()
 
 proceeding_tbl <-
   proceeding_tbl |>
@@ -159,16 +158,16 @@ proceeding_tbl <-
     col_types = cols(
       IDNPROCEEDING = col_integer(),
       IDNCASE = col_integer(),
-      OSC_DATE = col_datetime(format = ""),
-      INPUT_DATE = col_datetime(format = ""),
-      TRANS_IN_DATE = col_datetime(format = ""),
-      HEARING_DATE = col_datetime(format = ""),
-      COMP_DATE = col_datetime(format = ""),
-      VENUE_CHG_GRANTED = col_datetime(format = ""),
-      DATE_APPEAL_DUE_STATUS = col_datetime(format = ""),
+      OSC_DATE = col_date(),
+      INPUT_DATE = col_date(),
+      TRANS_IN_DATE = col_date(),
+      HEARING_DATE = col_date(),
+      COMP_DATE = col_date(),
+      VENUE_CHG_GRANTED = col_date(),
+      DATE_APPEAL_DUE_STATUS = col_date(),
       AGGRAVATE_FELON = col_logical(),
-      DATE_DETAINED = col_datetime(format = ""),
-      DATE_RELEASED = col_datetime(format = "")
+      DATE_DETAINED = col_date(),
+      DATE_RELEASED = col_date()
     ),
     na = na_vals
   )
@@ -182,7 +181,7 @@ proceeding_tbl <-
 # 5: [594912, 26]: expected date like , but got 'SFR'
 
 # Check that date columns parsed without excessive failures
-check_date_parse(proceeding_tbl, label = "B_TblProceeding")
+check_parse(proceeding_tbl)
 
 # Post-type-convert validation
 proceeding_tbl |>
@@ -197,26 +196,32 @@ proceeding_tbl |>
         DATE_DETAINED <= DATE_RELEASED
     ),
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  )
+  ) |>
+  invisible()
 
 cases_from_proceedings <-
   proceeding_tbl |>
   janitor::clean_names() |>
-  mutate(
-    osc_date = as.Date(osc_date),
-    comp_date = as.Date(comp_date)
+  rename(
+    nta_date = osc_date,
+    in_absentia = absentia,
+    nationality = nat,
+    language = lang,
+    custody_code = custody,
+    case_type_code = case_type,
+    judge_code = ij_code
   ) |>
-  # clean up absentia column which has erroneous values due to csv errors
+  # clean up in_absentia column which has erroneous values due to csv errors
   # assumes missing values, date errors, and "X", "DEP", and "5" values are not absentia
   mutate(
-    absentia = case_when(absentia == "Y" ~ TRUE, TRUE ~ FALSE)
+    in_absentia = case_when(in_absentia == "Y" ~ TRUE, TRUE ~ FALSE)
   ) |>
   # drop rows with missing IDNCASE (creating a case-level dataset)
   # -2 rows
   filter(!is.na(idncase)) |>
   # drop cases with inconsistent case types
   # -314 rows
-  filter(n_distinct(case_type) == 1, .by = "idncase") |>
+  filter(n_distinct(case_type_code) == 1, .by = "idncase") |>
   arrange(
     idncase,
     comp_date,
@@ -224,10 +229,10 @@ cases_from_proceedings <-
     dec_code,
     desc(is.na(other_comp)),
     other_comp,
-    desc(is.na(nat)),
-    nat,
-    desc(is.na(lang)),
-    lang,
+    desc(is.na(nationality)),
+    nationality,
+    desc(is.na(language)),
+    language,
     idnproceeding
   )
 
@@ -241,19 +246,19 @@ cases_from_proceedings <-
     .(
       first_proceeding_date = first(comp_date),
       final_completion_date = last(comp_date),
-      nta_date = first(osc_date),
+      nta_date = first(nta_date),
       first_court = first(base_city_code),
       final_court = last(base_city_code),
-      case_type_code = first(case_type),
+      case_type_code = first(case_type_code),
       dec_code = last(dec_code),
       other_comp = last(other_comp),
-      in_absentia = last(absentia),
-      nationality = last(nat),
-      language = last(lang),
-      custody_code = last(custody),
+      in_absentia = last(in_absentia),
+      nationality = last(nationality),
+      language = last(language),
+      custody_code = last(custody_code),
       first_hearing_location_code = first(hearing_loc_code),
       last_hearing_location_code = last(hearing_loc_code),
-      judge_code = last(ij_code)
+      judge_code = last(judge_code)
     ),
     by = idncase
   ]

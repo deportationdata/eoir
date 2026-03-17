@@ -5,13 +5,31 @@ library(pointblank)
 
 source("scripts/utilities.R")
 
+# Fix mid-row tab shifts
+appeal_shift_finder <- make_shift_finder(
+  date_cols = c("datAppealFiled", "datAttorneyE27", "datBIADecision"),
+  non_date_cols = c(
+    "strAppealCategory",
+    "strAppealType",
+    "strFiledBy",
+    "strBIADecision",
+    "strBIADecisionType",
+    "strCaseType",
+    "strLang",
+    "strNat",
+    "strCustody",
+    "strProbono"
+  )
+)
+
+appeals_raw <- read_eoir_tsv("inputs_eoir/tblAppeal.csv")
+
+appeal_fix_result <- auto_fix_tab_shifts(appeals_raw, appeal_shift_finder)
+
 appeals_tbl <-
-  read_eoir_tsv("inputs_eoir/tblAppeal.csv") |>
+  appeal_fix_result$dt |>
   as_tibble() |>
   clean_eoir_cols()
-
-# check number of rows in file
-# system("wc -l inputs_eoir/tblAppeal.csv")
 
 # Load lookup tables for validation
 lkp_bia_dec <- read_eoir_lookup("inputs_eoir/tblLookupBIADecision.csv")
@@ -75,44 +93,66 @@ appeals_tbl |>
     strProbono,
     c("Y", "N", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  )
+  ) |>
+  invisible()
+
+appeals_tbl <- type_convert(
+  appeals_tbl,
+  col_types = cols(
+    idnAppeal = col_integer(),
+    idnProceeding = col_integer(),
+    idncase = col_integer(),
+    datAppealFiled = col_date(),
+    datBIADecision = col_date(),
+    datAttorneyE27 = col_date()
+  ),
+  na = na_vals
+)
+
+check_parse(appeals_tbl)
 
 appeals_tbl <-
   appeals_tbl |>
   janitor::clean_names() |>
-  mutate(
-    idncase = as.integer(idncase),
-    datappealfiled = as.Date(dat_appeal_filed),
-    datbiadec = as.Date(dat_bia_decision),
-    dat_attorney_e27 = as.POSIXct(dat_attorney_e27)
+  rename(
+    appeal_filed_date = dat_appeal_filed,
+    bia_decision_date = dat_bia_decision,
+    e27_date = dat_attorney_e27,
+    bia_decision = str_bia_decision,
+    bia_decision_type_code = str_bia_decision_type,
+    appeal_category = str_appeal_category,
+    appeal_type = str_appeal_type,
+    appeal_filed_by_code = str_filed_by,
+    custody_at_appeal_code = str_custody
   ) |>
-  arrange(idncase, datbiadec, datappealfiled, idn_appeal)
+  arrange(idncase, bia_decision_date, appeal_filed_date, idn_appeal)
 
 # Validate date ordering (appeal filed before decision)
 appeals_tbl |>
   col_vals_expr(
     expr(
-      is.na(datappealfiled) | is.na(datbiadec) | datappealfiled <= datbiadec
+      is.na(appeal_filed_date) | is.na(bia_decision_date) | appeal_filed_date <= bia_decision_date
     ),
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  )
+  ) |>
+  invisible()
 
 setDT(appeals_tbl)
 
 appeals_by_case <-
   appeals_tbl[,
     .(
-      bia_decision = last(str_bia_decision),
-      bia_decision_type_code = last(str_bia_decision_type),
-      appeal_category = last(str_appeal_category),
-      appeal_type = last(str_appeal_type),
-      appeal_filed_by_code = last(str_filed_by),
-      custody_at_appeal_code = last(str_custody),
-      e27_date = last(dat_attorney_e27),
-      bia_decision_date = last(datbiadec),
-      appeal_filed_date = last(datappealfiled),
+      bia_decision = last(bia_decision),
+      bia_decision_type_code = last(bia_decision_type_code),
+      appeal_category = last(appeal_category),
+      appeal_type = last(appeal_type),
+      appeal_filed_by_code = last(appeal_filed_by_code),
+      custody_at_appeal_code = last(custody_at_appeal_code),
+      e27_date = last(e27_date),
+      bia_decision_date = last(bia_decision_date),
+      appeal_filed_date = last(appeal_filed_date),
       pending_appeal = case_when(
-        any(is.na(datbiadec) & !is.na(datappealfiled)) ~ TRUE,
+        any(is.na(bia_decision_date) & !is.na(appeal_filed_date)) ~ TRUE,
         TRUE ~ FALSE
       )
     ),

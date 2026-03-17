@@ -58,12 +58,25 @@ court_applications_tbl |>
     "^\\d{4}-\\d{2}-\\d{2}",
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  )
+  ) |>
+  invisible()
+
+court_applications_tbl <- type_convert(
+  court_applications_tbl,
+  col_types = cols(
+    IDNPROCEEDINGAPPLN = col_integer(),
+    IDNPROCEEDING = col_integer(),
+    IDNCASE = col_integer(),
+    APPL_RECD_DATE = col_date()
+  ),
+  na = na_vals
+)
+
+check_parse(court_applications_tbl)
 
 court_applications_tbl <-
   court_applications_tbl |>
-  janitor::clean_names() |>
-  mutate(idncase = as.integer(idncase))
+  janitor::clean_names()
 
 setDT(court_applications_tbl)
 
