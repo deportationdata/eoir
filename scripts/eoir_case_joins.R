@@ -54,6 +54,30 @@ cases <- cases |>
 
 cases |>
   row_count_match(n_before_zip) |>
+  # Zip merge should not introduce too many NAs
+  col_vals_not_null(
+    respondent_state,
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    respondent_city,
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    respondent_county,
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_in_set(
+    respondent_state,
+    c(state.abb, "DC", "AS", "GU", "MP", "PR", "VI", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_regex(
+    respondent_county_fips,
+    "^\\d{5}$",
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
   invisible()
 
 appeals_by_case <-

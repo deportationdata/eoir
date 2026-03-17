@@ -70,19 +70,30 @@ charges_tbl <-
   charges_tbl |>
   janitor::clean_names()
 
-charges_tbl |>
+# Parse charge codes into INA section citation format
+# e.g. "212a6Ci" -> "212(a)(6)(C)(i)", "237a2Biv" -> "237(a)(2)(B)(iv)"
+charges_tbl <- charges_tbl |>
   mutate(
+    # Extract the numeric INA section prefix (e.g. "212", "237")
     section = str_extract(charge, "^\\d+"),
+    # Parse the subsection portion into parenthesized citation format
     remainder = str_remove(charge, "^\\d+") |>
+      # Lowercase the first letter when followed by a digit (e.g. "A6" -> "a6")
+      # since the first subsection letter is always lowercase in INA citations
       str_replace("^[A-Z](?=[0-9])", "a") |>
+      # Insert ")(" at each case or type boundary to split into subsection parts
       str_replace_all(
         "(?<=[a-z])(?=[A-Z0-9])|(?<=[A-Z])(?=[a-z0-9])|(?<=[0-9])(?=[A-Za-z])|\\s+",
         ")("
       ) |>
+      # Wrap the whole remainder in parentheses
       str_replace("^(.+)$", "(\\1)") |>
+      # Strip leading zeros from numeric subsections (e.g. "(01)" -> "(1)")
       str_replace_all("\\(0+(\\d)", "(\\1") |>
+      # Remove any empty parentheses produced by edge cases
       str_replace_all("\\(\\)", ""),
 
+    # Combine section and parsed remainder into final citation string
     charge_str = if_else(
       is.na(section),
       NA_character_,
@@ -90,16 +101,20 @@ charges_tbl |>
     )
   )
 
+# Deduplicate charges within each proceeding
+charges_tbl <- charges_tbl |>
+  distinct(idncase, idnproceeding, charge_str, .keep_all = TRUE)
+
 setDT(charges_tbl)
 
 setorder(charges_tbl, idncase, idnproceeding, idnprcdchg)
 
 charges_by_case <- charges_tbl[,
   .(
-    charge_code_1 = charge[1L],
-    charge_code_2 = charge[2L],
-    charge_code_3 = charge[3L],
-    charge_code_4 = charge[4L]
+    charge_code_1 = charge_str[1L],
+    charge_code_2 = charge_str[2L],
+    charge_code_3 = charge_str[3L],
+    charge_code_4 = charge_str[4L]
   ),
   by = idncase
 ]
