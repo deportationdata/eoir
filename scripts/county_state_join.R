@@ -100,9 +100,11 @@ zip_city |>
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   # All 50 states + DC are represented
-  col_vals_make_set(
-    respondent_state,
-    set = us_50_plus_dc
+  col_vals_between(
+    n_states,
+    left = 51,
+    right = 56,
+    preconditions = \(x) tibble(n_states = n_distinct(x$respondent_state))
   ) |>
   # 2020 Census geocorr should have 30,000–40,000 ZCTAs
   col_vals_between(
@@ -128,4 +130,4 @@ zip_lookup |>
   ) |>
   invisible()
 
-arrow::write_parquet(zip_lookup, "outputs/zip_lookup.parquet")
+arrow::write_parquet(zip_lookup, "tmp/zip_lookup.parquet")
