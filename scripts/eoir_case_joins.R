@@ -3,20 +3,6 @@ library(tidylog)
 
 source("scripts/utilities.R")
 
-# Join a lookup table and optionally drop the join key from the result
-join_lookup <- function(df, lookup, by_col, code_col, desc_col, new_name,
-                        drop = TRUE) {
-  result <- df |>
-    left_join(
-      lookup |>
-        select(all_of(c(code_col, desc_col))) |>
-        rename(!!new_name := all_of(desc_col)),
-      by = setNames(code_col, by_col)
-    )
-  if (drop) result <- result |> select(-all_of(by_col))
-  result
-}
-
 tblLanguage <- read_eoir_lookup("inputs_eoir/tblLanguage.csv")
 tblLookup_CasePriority <- read_eoir_lookup(
   "inputs_eoir/tblLookup_CasePriority.csv"
@@ -24,13 +10,10 @@ tblLookup_CasePriority <- read_eoir_lookup(
 tblLookupAlienNat <- read_eoir_lookup("inputs_eoir/tblLookupAlienNat.csv")
 tbllookupAppealType <- read_eoir_lookup("inputs_eoir/tbllookupAppealType.csv")
 tblLookupBaseCity <- read_eoir_lookup("inputs_eoir/tblLookupBaseCity.csv")
-tbllookupCharges <- read_eoir_lookup("inputs_eoir/tbllookupCharges.csv")
-tblLookupBIA <- read_eoir_lookup("inputs_eoir/tblLookupBIA.csv")
 tblLookupBIADecision <- read_eoir_lookup("inputs_eoir/tblLookupBIADecision.csv")
 tblLookupHloc <- read_eoir_lookup("inputs_eoir/tblLookupHloc.csv") |>
   filter(hearing_loc_code != "IAD") # non-unique key; skip for now
 tblLookupJudge <- read_eoir_lookup("inputs_eoir/tblLookupJudge.csv")
-tblLookupNationality <- read_eoir_lookup("inputs_eoir/tblLookupNationality.csv")
 
 cases <-
   arrow::read_parquet("tmp/cases_from_proceedings.parquet")
@@ -61,64 +44,17 @@ cases <-
 rm(case_tbl)
 gc()
 
-# --- ZIP code → city + county (Census/USPS) ---
-zcta_county_url <- "https://www2.census.gov/geo/docs/maps-data/data/rel2020/zcta520/tab20_zcta520_county20_natl.txt"
-zcta_county_path <- "inputs/tab20_zcta520_county20_natl.txt"
-if (!file.exists(zcta_county_path)) {
-  download.file(zcta_county_url, zcta_county_path)
-}
-zcta_county <- read_delim(
-  zcta_county_path,
-  delim = "|",
-  col_types = cols(.default = col_character(), AREALAND_PART = col_double())
-) |>
-  janitor::clean_names() |>
-  group_by(geoid_zcta5_20) |>
-  slice_max(arealand_part, n = 1, with_ties = FALSE) |>
-  ungroup() |>
-  select(
-    zcta = geoid_zcta5_20,
-    zip_county = namelsad_county_20
-  )
-
-# City name from Missouri Census Data Center geocorr file (USPS ZIPName field)
-zip_city <- read_csv(
-  "inputs/geocorr2022_2606509064.csv",
-  skip = 2,
-  col_names = c(
-    "zcta",
-    "state",
-    "place",
-    "stab",
-    "PlaceName",
-    "ZIPName",
-    "pop20",
-    "afact"
-  ),
-  col_types = cols(
-    .default = col_character(),
-    pop20 = col_double(),
-    afact = col_double()
-  )
-) |>
-  filter(!is.na(zcta)) |>
-  distinct(zcta, ZIPName) |>
-  mutate(
-    zip_state = str_remove(ZIPName, " [(]PO boxes[)]$") |>
-      str_extract("[A-Z]{2}$"),
-    zip_city = str_remove(ZIPName, " [(]PO boxes[)]$") |>
-      str_remove(", [A-Z]{2}$")
-  ) |>
-  select(zcta, zip_city, zip_state)
-
-zip_lookup <- left_join(zip_city, zcta_county, by = "zcta")
-stopifnot(!anyDuplicated(zip_lookup$zcta))
+zip_lookup <- arrow::read_parquet("tmp/zip_lookup.parquet")
 
 n_before_zip <- nrow(cases)
+
 cases <- cases |>
   left_join(zip_lookup, by = c("alien_zipcode" = "zcta")) |>
   select(-alien_zipcode)
-stopifnot(nrow(cases) == n_before_zip)
+
+cases |>
+  row_count_match(n_before_zip) |>
+  invisible()
 
 appeals_by_case <-
   arrow::read_parquet("tmp/appeals_cases.parquet")
@@ -186,11 +122,7 @@ cases <-
   mutate(
     case_outcome = coalesce(case_outcome, other_completion),
     relief_granted = case_outcome %in% "Relief Granted",
-    terminated = if_else(
-      case_outcome %in% c("Terminate", "Terminated"),
-      TRUE,
-      FALSE
-    ),
+    terminated = case_outcome %in% c("Terminate", "Terminated"),
     final_completion_year = year(final_completion_date),
     case_length_days = as.numeric(final_completion_date - nta_date),
     across(
@@ -205,30 +137,76 @@ cases <-
       ),
       \(x) replace_na(x, FALSE)
     )
-  )
+  ) |>
+  select(-dec_code, -other_comp, -other_completion)
 
 # Resolve code columns to human-readable descriptions via lookup tables
-cases <- cases |>
-  join_lookup(tblLanguage, "language", "str_code", "str_description", "language_desc") |>
-  join_lookup(tblLookup_CasePriority, "case_priority_code", "str_code", "str_description", "case_priority", drop = FALSE) |>
-  join_lookup(tblLookupAlienNat, "nationality", "str_code", "str_description", "nationality_desc") |>
-  join_lookup(tbllookupAppealType, "appeal_type", "str_appl_code", "str_appl_description", "appeal_type_desc") |>
-  join_lookup(tblLookupBIADecision, "bia_decision", "str_code", "str_description", "bia_decision_desc")
 
-# tblLookupBaseCity: two joins (first_court + final_court) with formatted labels
+# Language
+cases <- cases |>
+  left_join(
+    tblLanguage |> select(str_code, language_desc = str_description),
+    by = c("language" = "str_code")
+  ) |>
+  select(-language)
+
+# Case priority
+cases <- cases |>
+  left_join(
+    tblLookup_CasePriority |> select(str_code, case_priority = str_description),
+    by = c("case_priority_code" = "str_code")
+  )
+
+# Nationality
+cases <- cases |>
+  left_join(
+    tblLookupAlienNat |> select(str_code, nationality_desc = str_description),
+    by = c("nationality" = "str_code")
+  ) |>
+  select(-nationality)
+
+# Appeal type
+cases <- cases |>
+  left_join(
+    tbllookupAppealType |>
+      select(str_appl_code, appeal_type_desc = str_appl_description),
+    by = c("appeal_type" = "str_appl_code")
+  ) |>
+  select(-appeal_type)
+
+# BIA decision
+cases <- cases |>
+  left_join(
+    tblLookupBIADecision |>
+      select(str_code, bia_decision_desc = str_description),
+    by = c("bia_decision" = "str_code")
+  ) |>
+  select(-bia_decision)
+
+# Courts (first + final)
 base_city_desc <- tblLookupBaseCity |>
-  transmute(base_city_code, court_desc = glue::glue("{base_city} ({base_city_code})"))
+  transmute(
+    base_city_code,
+    court_desc = glue::glue("{base_city} ({base_city_code})")
+  )
 
 cases <- cases |>
-  left_join(base_city_desc |> rename(first_court_desc = court_desc),
-            by = c("first_court" = "base_city_code")) |>
-  left_join(base_city_desc |> rename(final_court_desc = court_desc),
-            by = c("final_court" = "base_city_code")) |>
+  left_join(
+    base_city_desc |> rename(first_court_desc = court_desc),
+    by = c("first_court" = "base_city_code")
+  ) |>
+  left_join(
+    base_city_desc |> rename(final_court_desc = court_desc),
+    by = c("final_court" = "base_city_code")
+  ) |>
   select(-first_court, -final_court)
 
-# tblLookupJudge
+# Judge name
 cases <- cases |>
-  left_join(tblLookupJudge |> select(judge_code, judge_name), by = "judge_code")
+  left_join(
+    tblLookupJudge |> select(judge_code, judge_name),
+    by = "judge_code"
+  )
 
 # --- Data validation: NA-ify values from confirmed CSV read-in errors ---
 cases <-
@@ -285,19 +263,6 @@ cases |>
     as.integer(format(Sys.Date(), "%Y")) + 1L,
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  )
-
-# --- Flag rows with known source-data anomalies ---
-cases <-
-  cases |>
-  mutate(
-    data_flag = case_when(
-      !is.na(respondent_state) & !grepl("^[A-Z]{2}$", respondent_state) ~
-        "unusual_respondent_state",
-      !is.na(detention_location) & grepl("^[0-9]+$", detention_location) ~
-        "unusual_detention_location",
-      TRUE ~ NA_character_
-    )
   )
 
 arrow::write_parquet(

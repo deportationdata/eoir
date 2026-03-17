@@ -70,17 +70,36 @@ charges_tbl <-
   charges_tbl |>
   janitor::clean_names()
 
-charges_dt <- as.data.table(charges_tbl)
+charges_tbl |>
+  mutate(
+    section = str_extract(charge, "^\\d+"),
+    remainder = str_remove(charge, "^\\d+") |>
+      str_replace("^[A-Z](?=[0-9])", "a") |>
+      str_replace_all(
+        "(?<=[a-z])(?=[A-Z0-9])|(?<=[A-Z])(?=[a-z0-9])|(?<=[0-9])(?=[A-Za-z])|\\s+",
+        ")("
+      ) |>
+      str_replace("^(.+)$", "(\\1)") |>
+      str_replace_all("\\(0+(\\d)", "(\\1") |>
+      str_replace_all("\\(\\)", ""),
 
-setorder(charges_dt, idncase, idnproceeding, idnprcdchg)
+    charge_str = if_else(
+      is.na(section),
+      NA_character_,
+      glue::glue("{section}{remainder}")
+    )
+  )
 
-charges_by_case <- charges_dt[,
+setDT(charges_tbl)
+
+setorder(charges_tbl, idncase, idnproceeding, idnprcdchg)
+
+charges_by_case <- charges_tbl[,
   .(
     charge_code_1 = charge[1L],
     charge_code_2 = charge[2L],
     charge_code_3 = charge[3L],
-    charge_code_4 = charge[4L],
-    charges_all = paste(charge, collapse = "; ")
+    charge_code_4 = charge[4L]
   ),
   by = idncase
 ]
