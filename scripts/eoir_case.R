@@ -43,7 +43,9 @@ case_shift_finder <- local({
     alien_state <- trimws(as.character(row_dt[["ALIEN_STATE"]]))
     alien_city <- trimws(as.character(row_dt[["ALIEN_CITY"]]))
     if (
-      !is.na(alien_zip) && nchar(alien_zip) > 0 && grepl("^[A-Z]{2}$", alien_zip)
+      !is.na(alien_zip) &&
+        nchar(alien_zip) > 0 &&
+        grepl("^[A-Z]{2}$", alien_zip)
     ) {
       if (is.na(alien_city) || nchar(alien_city) == 0) {
         return("ALIEN_CITY")
@@ -153,30 +155,36 @@ cases_tbl |>
     "^\\d{4}-\\d{2}-\\d{2}",
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  )
-
-na_vals <- c("", "NA", "N/A", "NULL")
+  ) |>
+  invisible()
 
 spec <- cols(
   IDNCASE = col_integer(),
-  E_28_DATE = col_datetime(format = ""),
-  LATEST_HEARING = col_datetime(format = ""),
-  UP_BOND_DATE = col_datetime(format = ""),
-  DATE_OF_ENTRY = col_datetime(format = ""),
-  C_RELEASE_DATE = col_datetime(format = ""),
-  ADDRESS_CHANGEDON = col_datetime(format = ""),
-  DATE_DETAINED = col_datetime(format = ""),
-  DATE_RELEASED = col_datetime(format = "")
+  E_28_DATE = col_date(),
+  LATEST_HEARING = col_date(),
+  UP_BOND_DATE = col_date(),
+  DATE_OF_ENTRY = col_date(),
+  C_RELEASE_DATE = col_date(),
+  ADDRESS_CHANGEDON = col_date(),
+  DATE_DETAINED = col_date(),
+  DATE_RELEASED = col_date()
 )
 
 cases_tbl <- type_convert(cases_tbl, col_types = spec, na = na_vals)
 
 # Check that date columns parsed without excessive failures
-check_date_parse(cases_tbl, label = "A_TblCase")
+check_parse(cases_tbl)
 
 cases_tbl <-
   cases_tbl |>
   janitor::clean_names() |>
+  rename(
+    respondent_state = alien_state,
+    asylum_claim_type = c_asy_type,
+    sex_code = sex,
+    case_priority_code = casepriority_code,
+    e28_date = e_28_date
+  ) |>
   select(
     -c(
       lpr,
@@ -208,16 +216,9 @@ cases_tbl <-
     )
   ) |>
   mutate(
-    e28_date = as.Date(e_28_date),
     birth_year = as.integer(str_extract(c_birthdate, "\\d{4}"))
   ) |>
-  select(-c_birthdate, -e_28_date) |>
-  rename(
-    respondent_state = alien_state,
-    asylum_claim_type = c_asy_type,
-    sex_code = sex,
-    case_priority_code = casepriority_code
-  )
+  select(-c_birthdate)
 
 # Post-transform validation
 cases_tbl |>
@@ -227,7 +228,8 @@ cases_tbl |>
     as.integer(format(Sys.Date(), "%Y")),
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  )
+  ) |>
+  invisible()
 
 arrow::write_parquet(
   cases_tbl,

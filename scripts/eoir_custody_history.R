@@ -5,19 +5,18 @@ library(pointblank)
 
 source("scripts/utilities.R")
 
-custodyhistory_col_types <- c(
-  IDNCUSTODY = "integer",
-  IDNCASE = "integer",
-  CUSTODY = "character",
-  DATDETAINED = "POSIXct",
-  DATRELEASED = "POSIXct"
+# Fix mid-row tab shifts
+custody_shift_finder <- make_shift_finder(
+  date_cols = c("DATDETAINED", "DATRELEASED"),
+  non_date_cols = c("CUSTODY")
 )
 
+custody_raw <- read_eoir_tsv("inputs_eoir/tbl_CustodyHistory.csv")
+
+custody_fix_result <- auto_fix_tab_shifts(custody_raw, custody_shift_finder)
+
 custodyhistory_by_case <-
-  read_eoir_tsv(
-    "inputs_eoir/tbl_CustodyHistory.csv",
-    col_types = custodyhistory_col_types
-  ) |>
+  custody_fix_result$dt |>
   as_tibble() |>
   clean_eoir_cols()
 
@@ -38,32 +37,46 @@ custodyhistory_by_case |>
     CUSTODY,
     c(lkp_custody$str_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  )
+  ) |>
+  invisible()
+
+custodyhistory_by_case <- type_convert(
+  custodyhistory_by_case,
+  col_types = cols(
+    IDNCUSTODY = col_integer(),
+    IDNCASE = col_integer(),
+    DATDETAINED = col_date(),
+    DATRELEASED = col_date()
+  ),
+  na = na_vals
+)
+
+check_parse(custodyhistory_by_case)
 
 custodyhistory_by_case <-
   custodyhistory_by_case |>
   janitor::clean_names() |>
-  # convert to date to remove unused time information
-  mutate(
-    datdetained = as.Date(datdetained), # no changes to missing
-    datreleased = as.Date(datreleased) # no changes to missing
+  rename(
+    date_detained = datdetained,
+    date_released = datreleased
   ) |>
-  arrange(idncase, datdetained, idncustody)
+  arrange(idncase, date_detained, idncustody)
 
 # Validate date ordering (detained should precede release)
 custodyhistory_by_case |>
   col_vals_expr(
-    expr(is.na(datdetained) | is.na(datreleased) | datdetained <= datreleased),
+    expr(is.na(date_detained) | is.na(date_released) | date_detained <= date_released),
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  )
+  ) |>
+  invisible()
 
 setDT(custodyhistory_by_case)
 
 custodyhistory_by_case <-
   custodyhistory_by_case[,
     {
-      det <- head(datdetained, 4L)
-      rel <- head(datreleased, 4L)
+      det <- head(date_detained, 4L)
+      rel <- head(date_released, 4L)
       # Pad to length 4 with NA
       length(det) <- 4L
       length(rel) <- 4L

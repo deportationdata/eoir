@@ -119,43 +119,67 @@ associated_bond_tbl |>
     "^\\d*(\\.\\d+)?$",
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  )
+  ) |>
+  invisible()
+
+associated_bond_tbl <- type_convert(
+  associated_bond_tbl,
+  col_types = cols(
+    IDNASSOCBOND = col_integer(),
+    IDNPROCEEDING = col_integer(),
+    IDNCASE = col_integer(),
+    OSC_DATE = col_date(),
+    UPDATE_DATE = col_date(),
+    INPUT_DATE = col_date(),
+    COMP_DATE = col_date(),
+    BOND_HEAR_REQ_DATE = col_date(),
+    DATE_APPEAL_DUE = col_date(),
+    E_28_DATE = col_date(),
+    DECISION_DUE_DATE = col_date(),
+    INITIAL_BOND = col_double(),
+    NEW_BOND = col_double()
+  ),
+  na = na_vals
+)
+
+check_parse(associated_bond_tbl)
 
 associated_bond_tbl <-
   associated_bond_tbl |>
   janitor::clean_names() |>
-  mutate(
-    idncase = as.integer(idncase),
-    bond_comp_date = as.Date(comp_date),
-    bond_hear_req_date = as.Date(bond_hear_req_date),
-    initial_bond = as.numeric(initial_bond),
-    new_bond = as.numeric(new_bond)
+  rename(
+    bond_completion_date = comp_date,
+    bond_hearing_request_date = bond_hear_req_date,
+    bond_decision = dec,
+    initial_bond_amount = initial_bond,
+    new_bond_amount = new_bond
   ) |>
-  arrange(idncase, bond_comp_date, idnassocbond)
+  arrange(idncase, bond_completion_date, idnassocbond)
 
 # Post-transform validation
 associated_bond_tbl |>
-  col_vals_gte(initial_bond, 0, na_pass = TRUE) |>
-  col_vals_gte(new_bond, 0, na_pass = TRUE) |>
+  col_vals_gte(initial_bond_amount, 0, na_pass = TRUE) |>
+  col_vals_gte(new_bond_amount, 0, na_pass = TRUE) |>
   col_vals_expr(
     expr(
-      is.na(bond_hear_req_date) |
-        is.na(bond_comp_date) |
-        bond_hear_req_date <= bond_comp_date
+      is.na(bond_hearing_request_date) |
+        is.na(bond_completion_date) |
+        bond_hearing_request_date <= bond_completion_date
     ),
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  )
+  ) |>
+  invisible()
 
 setDT(associated_bond_tbl)
 
 associated_bond_by_case <-
   associated_bond_tbl[,
     .(
-      bond_completion_date = last(bond_comp_date),
-      bond_hearing_request_date = last(bond_hear_req_date),
-      bond_decision = last(dec),
-      initial_bond_amount = last(initial_bond),
-      new_bond_amount = last(new_bond)
+      bond_completion_date = last(bond_completion_date),
+      bond_hearing_request_date = last(bond_hearing_request_date),
+      bond_decision = last(bond_decision),
+      initial_bond_amount = last(initial_bond_amount),
+      new_bond_amount = last(new_bond_amount)
     ),
     by = idncase
   ] |>

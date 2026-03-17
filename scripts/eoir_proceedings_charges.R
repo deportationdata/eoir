@@ -5,8 +5,18 @@ library(pointblank)
 
 source("scripts/utilities.R")
 
+# Fix mid-row tab shifts
+charges_shift_finder <- make_shift_finder(
+  date_cols = character(0),
+  non_date_cols = c("CHARGE", "CHG_STATUS")
+)
+
+charges_raw <- read_eoir_tsv("inputs_eoir/B_TblProceedCharges.csv")
+
+charges_fix_result <- auto_fix_tab_shifts(charges_raw, charges_shift_finder)
+
 charges_tbl <-
-  read_eoir_tsv("inputs_eoir/B_TblProceedCharges.csv") |>
+  charges_fix_result$dt |>
   as_tibble() |>
   clean_eoir_cols()
 
@@ -41,16 +51,24 @@ charges_tbl |>
     CHG_STATUS,
     c("N", "O", "S", "W", "s", "w", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  )
+  ) |>
+  invisible()
+
+charges_tbl <- type_convert(
+  charges_tbl,
+  col_types = cols(
+    IDNPRCDCHG = col_integer(),
+    IDNCASE = col_integer(),
+    IDNPROCEEDING = col_integer()
+  ),
+  na = na_vals
+)
+
+check_parse(charges_tbl)
 
 charges_tbl <-
   charges_tbl |>
-  janitor::clean_names() |>
-  mutate(
-    idnprcdchg = as.integer(idnprcdchg),
-    idncase = as.integer(idncase),
-    idnproceeding = as.integer(idnproceeding)
-  )
+  janitor::clean_names()
 
 charges_dt <- as.data.table(charges_tbl)
 
