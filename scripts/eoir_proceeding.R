@@ -30,11 +30,8 @@ proc_shift_finder <- make_shift_finder(
   )
 )
 
-proc_fix_result <- auto_fix_tab_shifts(proceeding_tbl, proc_shift_finder)
-proceeding_tbl <- proc_fix_result$dt
-
 proceeding_tbl <-
-  proceeding_tbl |>
+  auto_fix_tab_shifts(proceeding_tbl, proc_shift_finder)$dt |>
   as_tibble() |>
   clean_eoir_cols()
 

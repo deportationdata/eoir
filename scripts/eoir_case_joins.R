@@ -1,5 +1,6 @@
 library(tidyverse)
 library(tidylog)
+library(pointblank)
 
 source("scripts/utilities.R")
 
@@ -49,8 +50,8 @@ zip_lookup <- arrow::read_parquet("tmp/zip_lookup.parquet")
 n_before_zip <- nrow(cases)
 
 cases <- cases |>
-  left_join(zip_lookup, by = c("alien_zipcode" = "zcta")) |>
-  select(-alien_zipcode)
+  left_join(zip_lookup, by = c("alien_zipcode" = "zcta")) #|>
+# select(-alien_zipcode)
 
 cases |>
   row_count_match(n_before_zip) |>

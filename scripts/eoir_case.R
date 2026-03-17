@@ -71,15 +71,12 @@ case_pre_fix <- function(dt, row_n, n_extra) {
   set(dt, i, "ALIEN_CITY", paste(city, state))
 }
 
-case_fix_result <- auto_fix_tab_shifts(
-  cases_tbl,
-  case_shift_finder,
-  pre_fix = case_pre_fix
-)
-cases_tbl <- case_fix_result$dt
-
 cases_tbl <-
-  cases_tbl |>
+  auto_fix_tab_shifts(
+    cases_tbl,
+    case_shift_finder,
+    pre_fix = case_pre_fix
+  )$dt |>
   as_tibble() |>
   clean_eoir_cols()
 
@@ -179,7 +176,6 @@ cases_tbl <-
   cases_tbl |>
   janitor::clean_names() |>
   rename(
-    respondent_state = alien_state,
     asylum_claim_type = c_asy_type,
     sex_code = sex,
     case_priority_code = casepriority_code,

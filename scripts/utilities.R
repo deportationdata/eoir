@@ -212,6 +212,19 @@ check_parse <- function(df, max_fail_rate = 0.001) {
   invisible(df)
 }
 
+#' Assert that a data frame has exactly the expected number of rows.
+#' Designed for pipe use after joins that should not change row count.
+row_count_match <- function(df, expected_n) {
+  actual_n <- nrow(df)
+  if (actual_n != expected_n) {
+    stop(sprintf(
+      "row_count_match: expected %d rows, got %d (diff=%d)",
+      expected_n, actual_n, abs(actual_n - expected_n)
+    ))
+  }
+  invisible(df)
+}
+
 #' Automatically detect and fix mid-row tab shifts in an fread result.
 #' Returns list(dt, fixes).
 auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
