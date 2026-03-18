@@ -238,8 +238,6 @@ gc()
 
 setDT(cases_from_proceedings)
 
-# Stata's collapse (first)/(last) skip missing values; data.table's first()/last()
-# do not. These wrappers match Stata behavior, returning NA when all values are missing.
 first_nna <- function(x) {
   x <- na.omit(x)
   if (length(x)) first(x) else NA
@@ -248,6 +246,8 @@ last_nna <- function(x) {
   x <- na.omit(x)
   if (length(x)) last(x) else NA
 }
+
+stop()
 
 cases_from_proceedings <-
   cases_from_proceedings[,
