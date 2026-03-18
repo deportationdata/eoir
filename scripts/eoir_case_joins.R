@@ -15,6 +15,11 @@ tblLookupBIADecision <- read_eoir_lookup("inputs_eoir/tblLookupBIADecision.csv")
 tblLookupHloc <- read_eoir_lookup("inputs_eoir/tblLookupHloc.csv") |>
   filter(hearing_loc_code != "IAD") # non-unique key; skip for now
 tblLookupJudge <- read_eoir_lookup("inputs_eoir/tblLookupJudge.csv")
+tblLookupBIADecisionType <- read_eoir_lookup(
+  "inputs_eoir/tblLookupBIADecisionType.csv"
+)
+tblLookupFiledBy <- read_eoir_lookup("inputs_eoir/tblLookupFiledBy.csv")
+tblLookupCaseType <- read_eoir_lookup("inputs_eoir/tblLookupCaseType.csv")
 
 cases <-
   arrow::read_parquet("tmp/cases_from_proceedings.parquet")
@@ -50,31 +55,31 @@ zip_lookup <- arrow::read_parquet("tmp/zip_lookup.parquet")
 n_before_zip <- nrow(cases)
 
 cases <- cases |>
-  left_join(zip_lookup, by = c("alien_zipcode" = "zcta")) #|>
-# select(-alien_zipcode)
+  left_join(
+    zip_lookup,
+    by = c("alien_zipcode" = "zcta"),
+    relationship = "many-to-one"
+  ) |>
+  select(-alien_zipcode)
 
 cases |>
   row_count_match(n_before_zip) |>
   # Zip merge should not introduce too many NAs
-  col_vals_not_null(
-    respondent_state,
-    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
-  ) |>
-  col_vals_not_null(
-    respondent_city,
-    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
-  ) |>
-  col_vals_not_null(
-    respondent_county,
-    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
-  ) |>
+  # col_vals_not_null(
+  #   state,
+  #   actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  # ) |>
+  # col_vals_not_null(
+  #   county,
+  #   actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  # ) |>
   col_vals_in_set(
-    respondent_state,
+    state,
     c(state.abb, "DC", "AS", "GU", "MP", "PR", "VI", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_regex(
-    respondent_county_fips,
+    county_fips,
     "^\\d{5}$",
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
@@ -86,7 +91,8 @@ appeals_by_case <-
 
 cases <-
   cases |>
-  left_join(appeals_by_case, by = "idncase")
+  left_join(appeals_by_case, by = "idncase") |>
+  select(-appeal_category) # not useful — these match IJ proceedings
 
 rm(appeals_by_case)
 gc()
@@ -165,6 +171,25 @@ cases <-
   ) |>
   select(-dec_code, -other_comp, -other_completion)
 
+# Recode custody and asylum claim type codes to human-readable labels
+cases <-
+  cases |>
+  mutate(
+    custody_code = case_match(
+      custody_code,
+      "N" ~ "never detained",
+      "R" ~ "released",
+      "D" ~ "detained throughout",
+      .default = custody_code
+    ),
+    asylum_claim_type = case_match(
+      asylum_claim_type,
+      "I" ~ "affirmative",
+      "E" ~ "defensive",
+      .default = asylum_claim_type
+    )
+  )
+
 # Resolve code columns to human-readable descriptions via lookup tables
 
 # Language
@@ -233,6 +258,28 @@ cases <- cases |>
     by = "judge_code"
   )
 
+# BIA decision type
+cases <- cases |>
+  left_join(
+    tblLookupBIADecisionType |>
+      select(str_code, bia_decision_type = str_description),
+    by = c("bia_decision_type_code" = "str_code")
+  )
+
+# Appeal filed by
+cases <- cases |>
+  left_join(
+    tblLookupFiledBy |> select(str_code, appeal_filed_by = str_description),
+    by = c("appeal_filed_by_code" = "str_code")
+  )
+
+# Case type
+cases <- cases |>
+  left_join(
+    tblLookupCaseType |> select(str_code, case_type = str_description),
+    by = c("case_type_code" = "str_code")
+  )
+
 # --- Data validation: NA-ify values from confirmed CSV read-in errors ---
 cases <-
   cases |>
@@ -258,7 +305,7 @@ cases |>
   ) |>
   col_vals_in_set(
     asylum_claim_type,
-    c("E", "I", "J", NA),
+    c("affirmative", "defensive", "J", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
@@ -273,8 +320,24 @@ cases |>
   ) |>
   col_vals_in_set(
     custody_code,
-    c(lkp_custody$str_code, NA),
+    c("never detained", "released", "detained throughout", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  # Check that new lookup joins resolved most values
+  col_vals_not_null(
+    bia_decision_type,
+    preconditions = ~ filter(., !is.na(bia_decision_type_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    appeal_filed_by,
+    preconditions = ~ filter(., !is.na(appeal_filed_by_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    case_type,
+    preconditions = ~ filter(., !is.na(case_type_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_gte(
     case_length_days,

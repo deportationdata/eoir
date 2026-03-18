@@ -80,6 +80,17 @@ cases_tbl <-
   as_tibble() |>
   clean_eoir_cols()
 
+# Pre-process ALIEN_ZIPCODE: strip ZIP+4 suffixes and pad leading zeros
+cases_tbl <- cases_tbl |>
+  mutate(
+    ALIEN_ZIPCODE = str_extract(ALIEN_ZIPCODE, "^\\d{1,5}"),
+    ALIEN_ZIPCODE = if_else(
+      !is.na(ALIEN_ZIPCODE),
+      str_pad(ALIEN_ZIPCODE, 5, pad = "0"),
+      NA_character_
+    )
+  )
+
 # Load lookup tables for validation
 lkp_nat <- read_eoir_lookup("inputs_eoir/tblLookupAlienNat.csv")
 lkp_lang <- read_eoir_lookup("inputs_eoir/tblLanguage.csv")

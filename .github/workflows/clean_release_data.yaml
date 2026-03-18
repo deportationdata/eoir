@@ -33,6 +33,7 @@ jobs:
       - name: Process data
         run: |
           mkdir -p outputs
+          Rscript scripts/geography_join.R
           Rscript scripts/eoir_appeals.R
           Rscript scripts/eoir_associated_bond.R
           Rscript scripts/eoir_case.R
