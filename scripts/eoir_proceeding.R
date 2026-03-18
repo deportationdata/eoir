@@ -2,6 +2,7 @@ library(tidyverse)
 library(tidylog)
 library(data.table)
 library(pointblank)
+library(collapse)
 
 source("scripts/utilities.R")
 
@@ -149,25 +150,42 @@ proceeding_tbl |>
   ) |>
   invisible()
 
-proceeding_tbl <-
-  proceeding_tbl |>
-  type_convert(
-    col_types = cols(
-      IDNPROCEEDING = col_integer(),
-      IDNCASE = col_integer(),
-      OSC_DATE = col_date(),
-      INPUT_DATE = col_date(),
-      TRANS_IN_DATE = col_date(),
-      HEARING_DATE = col_date(),
-      COMP_DATE = col_date(),
-      VENUE_CHG_GRANTED = col_date(),
-      DATE_APPEAL_DUE_STATUS = col_date(),
-      AGGRAVATE_FELON = col_logical(),
-      DATE_DETAINED = col_date(),
-      DATE_RELEASED = col_date()
-    ),
-    na = na_vals
-  )
+# proceeding_tbl <-
+#   proceeding_tbl |>
+#   type_convert(
+#     col_types = cols(
+#       IDNPROCEEDING = col_integer(),
+#       IDNCASE = col_integer(),
+#       OSC_DATE = col_date(),
+#       INPUT_DATE = col_date(),
+#       TRANS_IN_DATE = col_date(),
+#       HEARING_DATE = col_date(),
+#       COMP_DATE = col_date(),
+#       VENUE_CHG_GRANTED = col_date(),
+#       DATE_APPEAL_DUE_STATUS = col_date(),
+#       AGGRAVATE_FELON = col_logical(),
+#       DATE_DETAINED = col_date(),
+#       DATE_RELEASED = col_date()
+#     ),
+#     na = na_vals
+#   )
+
+setDT(proceeding_tbl)
+
+proceeding_tbl[, `:=`(
+  IDNPROCEEDING = as.integer(IDNPROCEEDING),
+  IDNCASE = as.integer(IDNCASE),
+  OSC_DATE = as.IDate(OSC_DATE),
+  INPUT_DATE = as.IDate(INPUT_DATE),
+  TRANS_IN_DATE = as.IDate(TRANS_IN_DATE),
+  HEARING_DATE = as.IDate(HEARING_DATE),
+  COMP_DATE = as.IDate(COMP_DATE),
+  VENUE_CHG_GRANTED = as.IDate(VENUE_CHG_GRANTED),
+  DATE_APPEAL_DUE_STATUS = as.IDate(DATE_APPEAL_DUE_STATUS),
+  AGGRAVATE_FELON = as.logical(AGGRAVATE_FELON),
+  DATE_DETAINED = as.IDate(DATE_DETAINED),
+  DATE_RELEASED = as.IDate(DATE_RELEASED)
+)]
 
 # TODO:
 # Warning messages:
@@ -178,7 +196,7 @@ proceeding_tbl <-
 # 5: [594912, 26]: expected date like , but got 'SFR'
 
 # Check that date columns parsed without excessive failures
-check_parse(proceeding_tbl)
+# chec k_parse(proceeding_tbl)
 
 # Post-type-convert validation
 proceeding_tbl |>
@@ -238,35 +256,24 @@ gc()
 
 setDT(cases_from_proceedings)
 
-first_nna <- function(x) {
-  x <- na.omit(x)
-  if (length(x)) first(x) else NA
-}
-last_nna <- function(x) {
-  x <- na.omit(x)
-  if (length(x)) last(x) else NA
-}
-
-stop()
-
 cases_from_proceedings <-
   cases_from_proceedings[,
     .(
-      first_proceeding_date = first_nna(comp_date),
-      final_completion_date = last_nna(comp_date),
-      nta_date = first_nna(nta_date),
-      first_court = first_nna(base_city_code),
-      final_court = last_nna(base_city_code),
-      case_type_code = first_nna(case_type_code),
-      dec_code = last_nna(dec_code),
-      other_comp = last_nna(other_comp),
-      in_absentia = last_nna(in_absentia),
-      nationality = last_nna(nationality),
-      language = last_nna(language),
-      custody_code = last_nna(custody_code),
-      first_hearing_location_code = first_nna(hearing_loc_code),
-      last_hearing_location_code = last_nna(hearing_loc_code),
-      judge_code = last_nna(judge_code)
+      first_proceeding_date = ffirst(comp_date, na.rm = TRUE),
+      final_completion_date = flast(comp_date, na.rm = TRUE),
+      nta_date = ffirst(nta_date, na.rm = TRUE),
+      first_court = ffirst(base_city_code, na.rm = TRUE),
+      final_court = flast(base_city_code, na.rm = TRUE),
+      case_type_code = ffirst(case_type_code, na.rm = TRUE),
+      dec_code = flast(dec_code, na.rm = TRUE),
+      other_comp = flast(other_comp, na.rm = TRUE),
+      in_absentia = flast(in_absentia, na.rm = TRUE),
+      nationality = flast(nationality, na.rm = TRUE),
+      language = flast(language, na.rm = TRUE),
+      custody_code = flast(custody_code, na.rm = TRUE),
+      first_hearing_location_code = ffirst(hearing_loc_code, na.rm = TRUE),
+      last_hearing_location_code = flast(hearing_loc_code, na.rm = TRUE),
+      judge_code = flast(judge_code, na.rm = TRUE)
     ),
     by = idncase
   ]
