@@ -200,7 +200,7 @@ associated_bond_by_case <-
       N = "BOND DENIED- NO CHANGE (NO BOND SET BY DHS)",
       S = "BOND DENIED- NO CHANGE (DHS BOND AMOUNT UNCHANGED)",
       R = "BOND GRANTED-OWN RECOGNIZANCE",
-      .default = NA_character_
+      .default = bond_decision
     )
   )
 
