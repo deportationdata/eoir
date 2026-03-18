@@ -238,27 +238,76 @@ gc()
 
 setDT(cases_from_proceedings)
 
+# Stata's collapse (first)/(last) skip missing values; data.table's first()/last()
+# do not. These wrappers match Stata behavior, returning NA when all values are missing.
+first_nna <- function(x) {
+  x <- na.omit(x)
+  if (length(x)) first(x) else NA
+}
+last_nna <- function(x) {
+  x <- na.omit(x)
+  if (length(x)) last(x) else NA
+}
+
 cases_from_proceedings <-
   cases_from_proceedings[,
     .(
-      first_proceeding_date = first(comp_date),
-      final_completion_date = last(comp_date),
-      nta_date = first(nta_date),
-      first_court = first(base_city_code),
-      final_court = last(base_city_code),
-      case_type_code = first(case_type_code),
-      dec_code = last(dec_code),
-      other_comp = last(other_comp),
-      in_absentia = last(in_absentia),
-      nationality = last(nationality),
-      language = last(language),
-      custody_code = last(custody_code),
-      first_hearing_location_code = first(hearing_loc_code),
-      last_hearing_location_code = last(hearing_loc_code),
-      judge_code = last(judge_code)
+      first_proceeding_date = first_nna(comp_date),
+      final_completion_date = last_nna(comp_date),
+      nta_date = first_nna(nta_date),
+      first_court = first_nna(base_city_code),
+      final_court = last_nna(base_city_code),
+      case_type_code = first_nna(case_type_code),
+      dec_code = last_nna(dec_code),
+      other_comp = last_nna(other_comp),
+      in_absentia = last_nna(in_absentia),
+      nationality = last_nna(nationality),
+      language = last_nna(language),
+      custody_code = last_nna(custody_code),
+      first_hearing_location_code = first_nna(hearing_loc_code),
+      last_hearing_location_code = last_nna(hearing_loc_code),
+      judge_code = last_nna(judge_code)
     ),
     by = idncase
   ]
+
+# Validate collapsed case-level dataset
+cases_from_proceedings |>
+  as_tibble() |>
+  rows_distinct(idncase) |>
+  col_vals_not_null(
+    final_completion_date,
+    actions = action_levels(warn_at = 0.25, stop_at = 0.5)
+  ) |>
+  col_vals_not_null(
+    nta_date,
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_expr(
+    expr(
+      is.na(nta_date) |
+        is.na(final_completion_date) |
+        nta_date <= final_completion_date
+    ),
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  ) |>
+  col_vals_expr(
+    expr(
+      is.na(first_proceeding_date) |
+        is.na(final_completion_date) |
+        first_proceeding_date <= final_completion_date
+    ),
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  ) |>
+  col_vals_not_null(
+    final_court,
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    judge_code,
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  invisible()
 
 arrow::write_parquet(
   cases_from_proceedings,

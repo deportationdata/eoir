@@ -110,7 +110,8 @@ cases <-
     ij_final_date = final_completion_date,
     # combine to find the last completion date whether IJ or BIA
     final_completion_date = if_else(
-      !is.na(bia_decision_date) & bia_decision_date > final_completion_date,
+      !is.na(bia_decision_date) &
+        (is.na(final_completion_date) | bia_decision_date > final_completion_date),
       bia_decision_date,
       final_completion_date
     )
