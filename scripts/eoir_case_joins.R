@@ -175,18 +175,16 @@ cases <-
 cases <-
   cases |>
   mutate(
-    custody_code = case_match(
+    custody_code = recode(
       custody_code,
-      "N" ~ "never detained",
-      "R" ~ "released",
-      "D" ~ "detained throughout",
-      .default = custody_code
+      N = "never detained",
+      R = "released",
+      D = "detained throughout"
     ),
-    asylum_claim_type = case_match(
+    asylum_claim_type = recode(
       asylum_claim_type,
-      "I" ~ "affirmative",
-      "E" ~ "defensive",
-      .default = asylum_claim_type
+      I = "affirmative",
+      E = "defensive"
     )
   )
 
