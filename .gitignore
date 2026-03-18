@@ -48,6 +48,9 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
+# macOS
+.DS_Store
+
 # Input files
 inputs_eoir/
 
