@@ -12,8 +12,6 @@ tblLookupAlienNat <- read_eoir_lookup("inputs_eoir/tblLookupAlienNat.csv")
 tbllookupAppealType <- read_eoir_lookup("inputs_eoir/tbllookupAppealType.csv")
 tblLookupBaseCity <- read_eoir_lookup("inputs_eoir/tblLookupBaseCity.csv")
 tblLookupBIADecision <- read_eoir_lookup("inputs_eoir/tblLookupBIADecision.csv")
-tblLookupHloc <- read_eoir_lookup("inputs_eoir/tblLookupHloc.csv") |>
-  filter(hearing_loc_code != "IAD") # non-unique key; skip for now
 tblLookupJudge <- read_eoir_lookup("inputs_eoir/tblLookupJudge.csv")
 tblLookupBIADecisionType <- read_eoir_lookup(
   "inputs_eoir/tblLookupBIADecisionType.csv"
@@ -43,15 +41,9 @@ case_tbl <-
     !any_of(colnames(cases))
   )
 
-n_before_case_tbl <- nrow(cases)
-
 cases <-
   cases |>
   inner_join(case_tbl, by = "idncase")
-
-# cases |>
-#   row_count_match(n_before_case_tbl) |>
-#   invisible()
 
 rm(case_tbl)
 gc()
@@ -111,7 +103,8 @@ cases <-
     # combine to find the last completion date whether IJ or BIA
     final_completion_date = if_else(
       !is.na(bia_decision_date) &
-        (is.na(final_completion_date) | bia_decision_date > final_completion_date),
+        (is.na(final_completion_date) |
+          bia_decision_date > final_completion_date),
       bia_decision_date,
       final_completion_date
     )
@@ -142,6 +135,9 @@ charges_by_case <- arrow::read_parquet("tmp/charges_cases.parquet")
 cases <-
   cases |>
   left_join(charges_by_case, by = "idncase")
+
+rm(charges_by_case)
+gc()
 
 other_comp_code_lookup <-
   arrow::read_parquet("tmp/other_comp_code_lookup.parquet")
@@ -189,18 +185,18 @@ cases <-
 cases <-
   cases |>
   mutate(
-    custody_code = recode(
+    custody_code = recode_values(
       custody_code,
       N = "never detained",
       R = "released",
       D = "detained throughout"
     ),
-    asylum_claim_type = recode(
+    asylum_claim_type = recode_values(
       asylum_claim_type,
       I = "affirmative",
       E = "defensive"
     ),
-    custody_at_appeal_code = recode(
+    custody_at_appeal_code = recode_values(
       custody_at_appeal_code,
       N = "never detained",
       R = "released",
@@ -212,15 +208,14 @@ cases <-
 
 # Language
 cases <- cases |>
+  rename(language_code = language) |>
   left_join(
     tblLanguage |>
       filter(!is.na(str_code)) |>
-      select(str_code, language_desc = str_description),
-    by = c("language" = "str_code"),
+      select(str_code, language = str_description),
+    by = c("language_code" = "str_code"),
     relationship = "many-to-one"
-  ) |>
-  select(-language) |>
-  rename(language = language_desc)
+  )
 
 # Case priority
 cases <- cases |>
@@ -234,39 +229,36 @@ cases <- cases |>
 
 # Nationality
 cases <- cases |>
+  rename(nationality_code = nationality) |>
   left_join(
     tblLookupAlienNat |>
       filter(!is.na(str_code)) |> # TODO: discuss with David - Netherlands Antilles was NA
-      select(str_code, nationality_desc = str_description),
-    by = c("nationality" = "str_code"),
+      select(str_code, nationality = str_description),
+    by = c("nationality_code" = "str_code"),
     relationship = "many-to-one"
-  ) |>
-  select(-nationality) |>
-  rename(nationality = nationality_desc)
+  )
 
 # Appeal type
 cases <- cases |>
+  rename(appeal_type_code = appeal_type) |>
   left_join(
     tbllookupAppealType |>
       filter(!is.na(str_appl_code)) |>
-      select(str_appl_code, appeal_type_desc = str_appl_description),
-    by = c("appeal_type" = "str_appl_code"),
+      select(str_appl_code, appeal_type = str_appl_description),
+    by = c("appeal_type_code" = "str_appl_code"),
     relationship = "many-to-one"
-  ) |>
-  select(-appeal_type) |>
-  rename(appeal_type = appeal_type_desc)
+  )
 
 # BIA decision
 cases <- cases |>
+  rename(bia_decision_code = bia_decision) |>
   left_join(
     tblLookupBIADecision |>
       filter(!is.na(str_code)) |>
-      select(str_code, bia_decision_desc = str_description),
-    by = c("bia_decision" = "str_code"),
+      select(str_code, bia_decision = str_description),
+    by = c("bia_decision_code" = "str_code"),
     relationship = "many-to-one"
-  ) |>
-  select(-bia_decision) |>
-  rename(bia_decision = bia_decision_desc)
+  )
 
 # Courts (first + final)
 base_city_desc <-
@@ -278,18 +270,17 @@ base_city_desc <-
   )
 
 cases <- cases |>
+  rename(first_court_code = first_court, final_court_code = final_court) |>
   left_join(
-    base_city_desc |> rename(first_court_desc = court_desc),
-    by = c("first_court" = "base_city_code"),
+    base_city_desc |> rename(first_court = court_desc),
+    by = c("first_court_code" = "base_city_code"),
     relationship = "many-to-one"
   ) |>
   left_join(
-    base_city_desc |> rename(final_court_desc = court_desc),
-    by = c("final_court" = "base_city_code"),
+    base_city_desc |> rename(final_court = court_desc),
+    by = c("final_court_code" = "base_city_code"),
     relationship = "many-to-one"
-  ) |>
-  select(-first_court, -final_court) |>
-  rename(first_court = first_court_desc, final_court = final_court_desc)
+  )
 
 # Judge name
 cases <- cases |>
@@ -331,20 +322,18 @@ cases <- cases |>
     relationship = "many-to-one"
   )
 
-# --- Data validation: NA-ify values from confirmed CSV read-in errors ---
-cases <-
-  cases |>
-  mutate(
-    # NA-ify bad bia_decision_type_code values (source data error, not a valid code)
-    bia_decision_type_code = if_else(
-      bia_decision_type_code %in% c("A", "L", "P", "R", "T"),
-      bia_decision_type_code,
-      NA_character_
-    )
-  )
-
-# Load additional lookup table for final validation
-lkp_custody <- read_eoir_lookup("inputs_eoir/tblLookupCustodyStatus.csv")
+# TODO: this shouldn't be needed
+# # --- Data validation: NA-ify values from confirmed CSV read-in errors ---
+# cases <-
+#   cases |>
+#   mutate(
+#     # NA-ify bad bia_decision_type_code values (source data error, not a valid code)
+#     bia_decision_type_code = if_else(
+#       bia_decision_type_code %in% c("A", "L", "P", "R", "T"),
+#       bia_decision_type_code,
+#       NA_character_
+#     )
+#   )
 
 # Validate final assembled dataset
 cases |>
