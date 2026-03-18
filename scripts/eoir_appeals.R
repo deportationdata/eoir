@@ -120,7 +120,6 @@ appeals_tbl <-
     e27_date = dat_attorney_e27,
     bia_decision = str_bia_decision,
     bia_decision_type_code = str_bia_decision_type,
-    appeal_category = str_appeal_category,
     appeal_type = str_appeal_type,
     appeal_filed_by_code = str_filed_by,
     custody_at_appeal_code = str_custody
@@ -131,7 +130,9 @@ appeals_tbl <-
 appeals_tbl |>
   col_vals_expr(
     expr(
-      is.na(appeal_filed_date) | is.na(bia_decision_date) | appeal_filed_date <= bia_decision_date
+      is.na(appeal_filed_date) |
+        is.na(bia_decision_date) |
+        appeal_filed_date <= bia_decision_date
     ),
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
