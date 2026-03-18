@@ -187,20 +187,20 @@ cases <-
   mutate(
     custody_code = recode_values(
       custody_code,
-      N = "never detained",
-      R = "released",
-      D = "detained throughout"
+      "N" ~ "never detained",
+      "R" ~ "released",
+      "D" ~ "detained throughout"
     ),
     asylum_claim_type = recode_values(
       asylum_claim_type,
-      I = "affirmative",
-      E = "defensive"
+      "I" ~ "affirmative",
+      "E" ~ "defensive"
     ),
     custody_at_appeal_code = recode_values(
       custody_at_appeal_code,
-      N = "never detained",
-      R = "released",
-      D = "detained throughout"
+      "N" ~ "never detained",
+      "R" ~ "released",
+      "D" ~ "detained throughout"
     )
   )
 
@@ -321,19 +321,6 @@ cases <- cases |>
     by = c("case_type_code" = "str_code"),
     relationship = "many-to-one"
   )
-
-# TODO: this shouldn't be needed
-# # --- Data validation: NA-ify values from confirmed CSV read-in errors ---
-# cases <-
-#   cases |>
-#   mutate(
-#     # NA-ify bad bia_decision_type_code values (source data error, not a valid code)
-#     bia_decision_type_code = if_else(
-#       bia_decision_type_code %in% c("A", "L", "P", "R", "T"),
-#       bia_decision_type_code,
-#       NA_character_
-#     )
-#   )
 
 # Validate final assembled dataset
 cases |>
