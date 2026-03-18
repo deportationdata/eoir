@@ -375,17 +375,17 @@ cases |>
   # Check that new lookup joins resolved most values
   col_vals_not_null(
     bia_decision_type,
-    preconditions = ~ filter(., !is.na(bia_decision_type_code)),
+    preconditions = \(x) dplyr::filter(x, !is.na(bia_decision_type_code)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
     appeal_filed_by,
-    preconditions = ~ filter(., !is.na(appeal_filed_by_code)),
+    preconditions = \(x) dplyr::filter(x, !is.na(appeal_filed_by_code)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
     case_type,
-    preconditions = ~ filter(., !is.na(case_type_code)),
+    preconditions = \(x) dplyr::filter(x, !is.na(case_type_code)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_gte(
@@ -400,7 +400,8 @@ cases |>
     as.integer(format(Sys.Date(), "%Y")) + 1L,
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  )
+  ) |>
+  invisible()
 
 arrow::write_parquet(
   cases,
