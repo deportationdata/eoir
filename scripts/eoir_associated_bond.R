@@ -122,27 +122,24 @@ associated_bond_tbl |>
   ) |>
   invisible()
 
-associated_bond_tbl <- type_convert(
+associated_bond_tbl <- fast_convert(
   associated_bond_tbl,
-  col_types = cols(
-    IDNASSOCBOND = col_integer(),
-    IDNPROCEEDING = col_integer(),
-    IDNCASE = col_integer(),
-    OSC_DATE = col_date(),
-    UPDATE_DATE = col_date(),
-    INPUT_DATE = col_date(),
-    COMP_DATE = col_date(),
-    BOND_HEAR_REQ_DATE = col_date(),
-    DATE_APPEAL_DUE = col_date(),
-    E_28_DATE = col_date(),
-    DECISION_DUE_DATE = col_date(),
-    INITIAL_BOND = col_double(),
-    NEW_BOND = col_double()
-  ),
-  na = na_vals
+  list(
+    IDNASSOCBOND = "integer",
+    IDNPROCEEDING = "integer",
+    IDNCASE = "integer",
+    OSC_DATE = "datetime",
+    UPDATE_DATE = "datetime",
+    INPUT_DATE = "datetime",
+    COMP_DATE = "datetime",
+    BOND_HEAR_REQ_DATE = "datetime",
+    DATE_APPEAL_DUE = "datetime",
+    E_28_DATE = "datetime",
+    DECISION_DUE_DATE = "datetime",
+    INITIAL_BOND = "double",
+    NEW_BOND = "double"
+  )
 )
-
-check_parse(associated_bond_tbl)
 
 associated_bond_tbl <-
   associated_bond_tbl |>

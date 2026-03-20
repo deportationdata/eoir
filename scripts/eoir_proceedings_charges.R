@@ -54,17 +54,14 @@ charges_tbl |>
   ) |>
   invisible()
 
-charges_tbl <- type_convert(
+charges_tbl <- fast_convert(
   charges_tbl,
-  col_types = cols(
-    IDNPRCDCHG = col_integer(),
-    IDNCASE = col_integer(),
-    IDNPROCEEDING = col_integer()
-  ),
-  na = na_vals
+  list(
+    IDNPRCDCHG = "integer",
+    IDNCASE = "integer",
+    IDNPROCEEDING = "integer"
+  )
 )
-
-check_parse(charges_tbl)
 
 charges_tbl <-
   charges_tbl |>

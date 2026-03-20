@@ -40,18 +40,15 @@ custodyhistory_by_case |>
   ) |>
   invisible()
 
-custodyhistory_by_case <- type_convert(
+custodyhistory_by_case <- fast_convert(
   custodyhistory_by_case,
-  col_types = cols(
-    IDNCUSTODY = col_integer(),
-    IDNCASE = col_integer(),
-    DATDETAINED = col_date(),
-    DATRELEASED = col_date()
-  ),
-  na = na_vals
+  list(
+    IDNCUSTODY = "integer",
+    IDNCASE = "integer",
+    DATDETAINED = "datetime",
+    DATRELEASED = "datetime"
+  )
 )
-
-check_parse(custodyhistory_by_case)
 
 custodyhistory_by_case <-
   custodyhistory_by_case |>

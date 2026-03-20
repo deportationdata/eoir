@@ -96,20 +96,17 @@ appeals_tbl |>
   ) |>
   invisible()
 
-appeals_tbl <- type_convert(
+appeals_tbl <- fast_convert(
   appeals_tbl,
-  col_types = cols(
-    idnAppeal = col_integer(),
-    idnProceeding = col_integer(),
-    idncase = col_integer(),
-    datAppealFiled = col_date(),
-    datBIADecision = col_date(),
-    datAttorneyE27 = col_date()
-  ),
-  na = na_vals
+  list(
+    idnAppeal = "integer",
+    idnProceeding = "integer",
+    idncase = "integer",
+    datAppealFiled = "datetime",
+    datBIADecision = "datetime",
+    datAttorneyE27 = "datetime"
+  )
 )
-
-check_parse(appeals_tbl)
 
 appeals_tbl <-
   appeals_tbl |>
@@ -145,7 +142,7 @@ appeals_by_case <-
     .(
       bia_decision = last(bia_decision),
       bia_decision_type_code = last(bia_decision_type_code),
-      appeal_category = last(appeal_category),
+      # appeal_category = last(appeal_category),
       appeal_type = last(appeal_type),
       appeal_filed_by_code = last(appeal_filed_by_code),
       custody_at_appeal_code = last(custody_at_appeal_code),
