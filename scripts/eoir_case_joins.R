@@ -165,7 +165,9 @@ cases <-
     relief_granted = case_outcome %in% "Relief Granted",
     terminated = case_outcome %in% c("Terminate", "Terminated"),
     final_completion_year = year(final_completion_date),
-    case_length_days = as.numeric(final_completion_date - nta_date),
+    case_length_days = as.numeric(
+      difftime(final_completion_date, nta_date, units = "days")
+    ),
     across(
       c(
         asylum_application,
@@ -194,7 +196,8 @@ cases <-
     asylum_claim_type = recode_values(
       asylum_claim_type,
       "I" ~ "affirmative",
-      "E" ~ "defensive"
+      "E" ~ "defensive",
+      "J" ~ "J"
     ),
     custody_at_appeal_code = recode_values(
       custody_at_appeal_code,
@@ -378,6 +381,9 @@ cases |>
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
   invisible()
+
+cases <- cases |>
+  mutate(across(where(is.POSIXct), ~ as.Date(.x, tz = "UTC")))
 
 arrow::write_parquet(
   cases,

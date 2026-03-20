@@ -166,22 +166,20 @@ cases_tbl |>
   ) |>
   invisible()
 
-spec <- cols(
-  IDNCASE = col_integer(),
-  E_28_DATE = col_date(),
-  LATEST_HEARING = col_date(),
-  UP_BOND_DATE = col_date(),
-  DATE_OF_ENTRY = col_date(),
-  C_RELEASE_DATE = col_date(),
-  ADDRESS_CHANGEDON = col_date(),
-  DATE_DETAINED = col_date(),
-  DATE_RELEASED = col_date()
+cases_tbl <- fast_convert(
+  cases_tbl,
+  list(
+    IDNCASE = "integer",
+    E_28_DATE = "datetime",
+    LATEST_HEARING = "datetime",
+    UP_BOND_DATE = "datetime",
+    DATE_OF_ENTRY = "datetime",
+    C_RELEASE_DATE = "datetime",
+    ADDRESS_CHANGEDON = "datetime",
+    DATE_DETAINED = "datetime",
+    DATE_RELEASED = "datetime"
+  )
 )
-
-cases_tbl <- type_convert(cases_tbl, col_types = spec, na = na_vals)
-
-# Check that date columns parsed without excessive failures
-check_parse(cases_tbl)
 
 cases_tbl <-
   cases_tbl |>

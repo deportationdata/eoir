@@ -259,21 +259,21 @@ setDT(cases_from_proceedings)
 cases_from_proceedings <-
   cases_from_proceedings[,
     .(
-      first_proceeding_date = ffirst(comp_date, na.rm = TRUE),
-      final_completion_date = flast(comp_date, na.rm = TRUE),
-      nta_date = ffirst(nta_date, na.rm = TRUE),
-      first_court = ffirst(base_city_code, na.rm = TRUE),
-      final_court = flast(base_city_code, na.rm = TRUE),
-      case_type_code = ffirst(case_type_code, na.rm = TRUE),
-      dec_code = flast(dec_code, na.rm = TRUE),
-      other_comp = flast(other_comp, na.rm = TRUE),
-      in_absentia = flast(in_absentia, na.rm = TRUE),
-      nationality = flast(nationality, na.rm = TRUE),
-      language = flast(language, na.rm = TRUE),
-      custody_code = flast(custody_code, na.rm = TRUE),
-      first_hearing_location_code = ffirst(hearing_loc_code, na.rm = TRUE),
-      last_hearing_location_code = flast(hearing_loc_code, na.rm = TRUE),
-      judge_code = flast(judge_code, na.rm = TRUE)
+      first_proceeding_date = first(comp_date),
+      final_completion_date = last(comp_date),
+      nta_date = first(nta_date),
+      first_court = first(base_city_code),
+      final_court = last(base_city_code),
+      case_type_code = first(case_type_code),
+      dec_code = last(dec_code),
+      other_comp = last(other_comp),
+      in_absentia = last(in_absentia),
+      nationality = last(nationality),
+      language = last(language),
+      custody_code = last(custody_code),
+      first_hearing_location_code = first(hearing_loc_code),
+      last_hearing_location_code = last(hearing_loc_code),
+      judge_code = last(judge_code)
     ),
     by = idncase
   ]

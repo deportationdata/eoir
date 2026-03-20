@@ -7,7 +7,7 @@ library(dplyr)
 library(readr)
 library(pointblank)
 
-na_vals <- c("", "NA", "N/A", "NULL")
+na_vals <- c("")
 
 #' Read an EOIR TSV file with standardized parameters and row-count validation.
 #' Returns a data.table.
@@ -93,7 +93,7 @@ read_eoir_lookup <- function(file) {
     I(rawToChar(raw_bytes)),
     delim = "\t",
     col_types = cols(.default = col_character()),
-    na = c("", "NA", "NULL"),
+    na = c(""),
     show_col_types = FALSE
   ) |>
     janitor::clean_names()
@@ -169,6 +169,71 @@ shift_left_dt <- function(dt, row_n, col_name, n_offset) {
     )
   }
   invisible(dt)
+}
+
+#' Fast type conversion with problem tracking.
+#' Replaces type_convert() + check_parse() — uses base R coercion and
+#' tracks new NAs introduced by failed conversions.
+fast_convert <- function(df, col_specs, na = na_vals, max_fail_rate = 0.001) {
+  n <- nrow(df)
+  bad_cols <- character(0)
+
+  for (col_name in names(col_specs)) {
+    orig <- df[[col_name]]
+    was_na <- is.na(orig) | orig %in% na
+
+    df[[col_name]] <- switch(
+      col_specs[[col_name]],
+      integer = suppressWarnings(as.integer(orig)),
+      double = suppressWarnings(as.double(orig)),
+      datetime = as.POSIXct(orig, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
+      date = as.Date(orig, format = "%Y-%m-%d"),
+      stop(sprintf(
+        "fast_convert: unknown type '%s' for column '%s'",
+        col_specs[[col_name]],
+        col_name
+      ))
+    )
+
+    new_na <- is.na(df[[col_name]]) & !was_na
+    fail_n <- sum(new_na)
+
+    if (fail_n > 0L) {
+      rate <- fail_n / n
+      bad_vals <- paste(head(unique(orig[new_na]), 5), collapse = ", ")
+      if (rate > max_fail_rate) {
+        bad_cols <- c(
+          bad_cols,
+          sprintf(
+            "%s: %d (%.2f%%) e.g. %s",
+            col_name,
+            fail_n,
+            rate * 100,
+            bad_vals
+          )
+        )
+      } else {
+        message(sprintf(
+          "fast_convert: %s — %d failures (%.4f%%), under threshold. e.g. %s",
+          col_name,
+          fail_n,
+          rate * 100,
+          bad_vals
+        ))
+      }
+    }
+  }
+
+  if (length(bad_cols) > 0L) {
+    stop(sprintf(
+      "fast_convert: parse failures exceed %.3f%% in %d column(s): %s",
+      max_fail_rate * 100,
+      length(bad_cols),
+      paste(bad_cols, collapse = "; ")
+    ))
+  }
+
+  df
 }
 
 #' Check that date columns parsed without excessive failures.

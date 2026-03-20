@@ -61,18 +61,15 @@ court_applications_tbl |>
   ) |>
   invisible()
 
-court_applications_tbl <- type_convert(
+court_applications_tbl <- fast_convert(
   court_applications_tbl,
-  col_types = cols(
-    IDNPROCEEDINGAPPLN = col_integer(),
-    IDNPROCEEDING = col_integer(),
-    IDNCASE = col_integer(),
-    APPL_RECD_DATE = col_date()
-  ),
-  na = na_vals
+  list(
+    IDNPROCEEDINGAPPLN = "integer",
+    IDNPROCEEDING = "integer",
+    IDNCASE = "integer",
+    APPL_RECD_DATE = "date"
+  )
 )
-
-check_parse(court_applications_tbl)
 
 court_applications_tbl <-
   court_applications_tbl |>
