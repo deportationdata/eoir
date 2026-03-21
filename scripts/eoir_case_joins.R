@@ -530,7 +530,14 @@ arrow::write_parquet(
 )
 
 arrow::write_parquet(
-  cases |> select(-ends_with("_code")),
+  cases |>
+    select(
+      -ends_with("_code"),
+      first_hearing_location_code,
+      last_hearing_location_code,
+      custody_code,
+      custody_at_appeal_code
+    ),
   "outputs/cases-no-codes.parquet",
   compression = "ZSTD"
 )
