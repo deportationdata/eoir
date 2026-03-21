@@ -124,10 +124,10 @@ setorder(charges_tbl, idncase, idnproceeding, idnprcdchg)
 
 charges_by_case <- charges_tbl[,
   .(
-    charge_code_1 = charge_str[1L],
-    charge_code_2 = charge_str[2L],
-    charge_code_3 = charge_str[3L],
-    charge_code_4 = charge_str[4L]
+    charge_section_1 = charge_str[1L],
+    charge_section_2 = charge_str[2L],
+    charge_section_3 = charge_str[3L],
+    charge_section_4 = charge_str[4L]
   ),
   by = idncase
 ]
