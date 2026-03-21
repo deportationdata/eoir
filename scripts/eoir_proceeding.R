@@ -220,8 +220,6 @@ cases_from_proceedings <-
   rename(
     nta_date = osc_date,
     in_absentia = absentia,
-    nationality = nat,
-    language = lang,
     custody_code = custody,
     case_type_code = case_type,
     judge_code = ij_code
@@ -240,14 +238,8 @@ cases_from_proceedings <-
   arrange(
     idncase,
     comp_date,
-    desc(is.na(dec_code)),
     dec_code,
-    desc(is.na(other_comp)),
     other_comp,
-    desc(is.na(nationality)),
-    nationality,
-    desc(is.na(language)),
-    language,
     idnproceeding
   )
 
@@ -268,8 +260,6 @@ cases_from_proceedings <-
       dec_code = last(dec_code),
       other_comp = last(other_comp),
       in_absentia = last(in_absentia),
-      nationality = last(nationality),
-      language = last(language),
       custody_code = last(custody_code),
       first_hearing_location_code = first(hearing_loc_code),
       last_hearing_location_code = last(hearing_loc_code),

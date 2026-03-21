@@ -148,8 +148,8 @@ appeals_by_case <-
       custody_at_appeal_code = last(custody_at_appeal_code),
       e27_date = last(e27_date),
       bia_decision_date = last(bia_decision_date),
-      appeal_filed_date = last(appeal_filed_date),
-      pending_appeal = any(is.na(bia_decision_date) & !is.na(appeal_filed_date))
+      appeal_filed_date = last(appeal_filed_date)
+      # pending_appeal = any(is.na(bia_decision_date) & !is.na(appeal_filed_date))
     ),
     by = .(idncase)
   ]

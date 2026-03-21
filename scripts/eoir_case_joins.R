@@ -41,9 +41,18 @@ case_tbl <-
     !any_of(colnames(cases))
   )
 
+n_before_case <- nrow(cases)
+
 cases <-
   cases |>
   inner_join(case_tbl, by = "idncase")
+
+message(sprintf(
+  "inner_join with case table: %d -> %d rows (%d dropped)",
+  n_before_case,
+  nrow(cases),
+  n_before_case - nrow(cases)
+))
 
 rm(case_tbl)
 gc()
@@ -95,6 +104,18 @@ rm(appeals_by_case)
 gc()
 
 # replace final_completion_date with bia_decision_date if BIA decided later
+n_bia_override <- sum(
+  !is.na(cases$bia_decision_date) &
+    (is.na(cases$final_completion_date) |
+      cases$bia_decision_date > cases$final_completion_date),
+  na.rm = TRUE
+)
+message(sprintf(
+  "final_completion_date overridden by bia_decision_date for %d cases",
+  n_bia_override
+))
+
+
 cases <-
   cases |>
   mutate(
@@ -103,8 +124,8 @@ cases <-
     # combine to find the last completion date whether IJ or BIA
     final_completion_date = if_else(
       !is.na(bia_decision_date) &
-        (is.na(final_completion_date) |
-          bia_decision_date > final_completion_date),
+        !is.na(final_completion_date) &
+        bia_decision_date > final_completion_date,
       bia_decision_date,
       final_completion_date
     )
@@ -188,7 +209,7 @@ cases <-
   cases |>
   mutate(
     custody_code = recode_values(
-      custody_code,
+      custody,
       "N" ~ "never detained",
       "R" ~ "released",
       "D" ~ "detained throughout"
@@ -205,13 +226,14 @@ cases <-
       "R" ~ "released",
       "D" ~ "detained throughout"
     )
-  )
+  ) |>
+  select(-custody)
 
 # Resolve code columns to human-readable descriptions via lookup tables
 
 # Language
 cases <- cases |>
-  rename(language_code = language) |>
+  rename(language_code = lang) |>
   left_join(
     tblLanguage |>
       filter(!is.na(str_code)) |>
@@ -232,7 +254,7 @@ cases <- cases |>
 
 # Nationality
 cases <- cases |>
-  rename(nationality_code = nationality) |>
+  rename(nationality_code = nat) |>
   left_join(
     tblLookupAlienNat |>
       filter(!is.na(str_code)) |> # TODO: discuss with David - Netherlands Antilles was NA
@@ -383,7 +405,11 @@ cases |>
   invisible()
 
 cases <- cases |>
-  mutate(across(where(is.POSIXct), ~ as.Date(.x, tz = "UTC")))
+  mutate(across(where(is.POSIXct), ~ as.Date(.x, tz = "UTC"))) |>
+  filter(
+    # keep data after IIRIRA which changed many codes in the data
+    !is.na(nta_date) & nta_date >= as.Date("1997-10-01")
+  )
 
 arrow::write_parquet(
   cases,
@@ -391,7 +417,7 @@ arrow::write_parquet(
   compression = "ZSTD"
 )
 
-# haven::write_dta(cases, "outputs/cases.dta")
+haven::write_dta(cases, "outputs/cases.dta")
 # haven::write_sav(cases, "outputs/cases.sav")
 
 # # split into sheets for Excel (max 1 million rows per sheet)
