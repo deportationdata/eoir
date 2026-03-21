@@ -208,13 +208,12 @@ cases_tbl <-
       updated_city,
       updated_zipcode,
       alien_city,
+      alien_state,
       address_changedon,
       zbond_mrg_flag,
       dco_location,
       detention_facility_type,
-      # Drop fields that duplicate proceedings-level versions
       case_type,
-      # Drop fields not needed in final output
       c_release_date,
       date_detained,
       date_released,

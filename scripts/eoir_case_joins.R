@@ -18,6 +18,7 @@ tblLookupBIADecisionType <- read_eoir_lookup(
 )
 tblLookupFiledBy <- read_eoir_lookup("inputs_eoir/tblLookupFiledBy.csv")
 tblLookupCaseType <- read_eoir_lookup("inputs_eoir/tblLookupCaseType.csv")
+tblLookupSex <- read_eoir_lookup("inputs_eoir/tblLookupSex.csv")
 
 cases <-
   arrow::read_parquet("tmp/cases_from_proceedings.parquet")
@@ -347,6 +348,16 @@ cases <- cases |>
     relationship = "many-to-one"
   )
 
+# Sex
+cases <- cases |>
+  left_join(
+    tblLookupSex |>
+      filter(!is.na(strcode)) |>
+      select(strcode, sex = str_description),
+    by = c("sex_code" = "strcode"),
+    relationship = "many-to-one"
+  )
+
 # Validate final assembled dataset
 cases |>
   col_vals_not_null(
@@ -409,6 +420,107 @@ cases <- cases |>
   filter(
     # keep data after IIRIRA which changed many codes in the data
     !is.na(nta_date) & nta_date >= as.Date("1997-10-01")
+  ) |>
+  relocate(
+    # Case identifiers
+    idncase,
+
+    # Case type information
+    case_type_code,
+    case_type,
+    case_priority_code,
+    case_priority,
+
+    # Respondent demographics
+    sex_code,
+    sex,
+    birth_year,
+    nationality_code,
+    nationality,
+    language_code,
+    language,
+
+    # Geography
+    state,
+    state_fips,
+    county,
+    county_fips,
+    place,
+    place_fips,
+
+    # Entry & initiation
+    date_of_entry,
+    nta_date,
+    charge_section_1,
+    charge_section_2,
+    charge_section_3,
+    charge_section_4,
+
+    # Court & judge
+    first_court_code,
+    first_court,
+    final_court_code,
+    final_court,
+    first_hearing_location_code,
+    last_hearing_location_code,
+    judge_code,
+    judge_name,
+
+    # IJ proceedings
+    first_proceeding_date,
+    e28_date,
+    in_absentia,
+    ij_final_date,
+    final_completion_date,
+    final_completion_year,
+    case_length_days,
+
+    # Custody & detention
+    custody_code,
+    detention_start_1,
+    detention_end_1,
+    detention_start_2,
+    detention_end_2,
+    detention_start_3,
+    detention_end_3,
+    detention_start_4,
+    detention_end_4,
+
+    # Bond
+    bond_hearing_request_date,
+    bond_completion_date,
+    bond_decision,
+    initial_bond_amount,
+    new_bond_amount,
+
+    # Applications for relief
+    asylum_claim_type,
+    asylum_application,
+    withholding_application,
+    cat_application,
+    adjustment_application,
+    non_lpr_cancellation_application,
+    lpr_cancellation_application,
+    any_relief_application,
+
+    # IJ outcome
+    case_outcome,
+    relief_granted,
+    terminated,
+
+    # BIA appeal
+    appeal_type_code,
+    appeal_type,
+    appeal_filed_by_code,
+    appeal_filed_by,
+    appeal_filed_date,
+    e27_date,
+    custody_at_appeal_code,
+    bia_decision_code,
+    bia_decision,
+    bia_decision_type_code,
+    bia_decision_type,
+    bia_decision_date
   )
 
 arrow::write_parquet(
@@ -417,4 +529,10 @@ arrow::write_parquet(
   compression = "ZSTD"
 )
 
-haven::write_dta(cases, "outputs/cases.dta")
+arrow::write_parquet(
+  cases |> select(-ends_with("_code")),
+  "outputs/cases-no-codes.parquet",
+  compression = "ZSTD"
+)
+
+# haven::write_dta(cases, "outputs/cases.dta")
