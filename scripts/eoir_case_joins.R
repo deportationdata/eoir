@@ -415,12 +415,9 @@ cases |>
   ) |>
   invisible()
 
-cases <- cases |>
+cases <-
+  cases |>
   mutate(across(where(is.POSIXct), ~ as.Date(.x, tz = "UTC"))) |>
-  filter(
-    # keep data after IIRIRA which changed many codes in the data
-    !is.na(nta_date) & nta_date >= as.Date("1997-10-01")
-  ) |>
   relocate(
     # Case identifiers
     idncase,
@@ -523,6 +520,16 @@ cases <- cases |>
     bia_decision_date
   )
 
+# filter cases for final dataset
+cases <-
+  cases |>
+  filter(
+    # keep data after IIRIRA which changed many codes in the data
+    !is.na(nta_date) & nta_date >= as.Date("1997-10-01"),
+    # keep only standard removal proceedings (all new cases will be RMV after 1996)
+    case_type_code == "RMV"
+  )
+
 arrow::write_parquet(
   cases,
   "outputs/cases.parquet",
@@ -542,4 +549,34 @@ arrow::write_parquet(
   compression = "ZSTD"
 )
 
-# haven::write_dta(cases, "outputs/cases.dta")
+# Encode string variables as factors to save space in Stata file
+cases <- cases |>
+  mutate(across(
+    any_of(c(
+      "case_outcome",
+      "bia_decision",
+      "nationality",
+      "judge_name",
+      "language",
+      "bond_decision",
+      "case_priority",
+      "appeal_type",
+      "sex_code",
+      "custody",
+      "first_court",
+      "final_court",
+      "charge_code_1",
+      "charge_code_2",
+      "charge_code_3",
+      "charge_code_4",
+      "respondent_state",
+      "asylum_claim_type",
+      "case_type",
+      "bia_decision_type",
+      "appeal_filed_by",
+      "custody_at_appeal"
+    )),
+    \(x) factor(x)
+  ))
+
+readstata13::save.dta13(cases, "outputs/cases.dta", compress = TRUE)
