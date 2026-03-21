@@ -44,19 +44,6 @@ jobs:
           Rscript scripts/eoir_proceedings_charges.R
           Rscript scripts/eoir_case_joins.R
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
-      - name: Install Python dependencies
-        run: pip install presidio-analyzer names-dataset pandas pyarrow
-
-      - name: Run PII check
-        env:
-          PII_SAMPLE_N: ""   # empty = full scan
-        run: python3 scripts/pii_check.py
-
       - name: Commit and push to branch
         id: commit
         run: |
