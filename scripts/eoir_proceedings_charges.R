@@ -39,13 +39,13 @@ charges_tbl |>
   col_vals_regex(IDNPROCEEDING, "^\\d+$", na_pass = TRUE) |>
   col_vals_not_null(
     CHARGE,
-    actions = action_levels(warn_at = 0.005, stop_at = 0.0001)
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.005)
   ) |>
   col_vals_regex(
     CHARGE,
     "^(212|237|241|242|246|215)[a-zA-Z]\\d",
     na_pass = TRUE,
-    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
   col_vals_in_set(
     CHG_STATUS,
@@ -97,6 +97,20 @@ charges_tbl <- charges_tbl |>
       is.na(section),
       NA_character_,
       glue::glue("{section}{remainder}")
+    )
+  )
+
+charges_tbl <-
+  charges_tbl |>
+  mutate(
+    charge_str = case_when(
+      charge == "212a03F" ~ "212(a)(3)(F)",
+      charge == "215a" ~ "215(a)", # not used but in case it appears in future data
+      charge == "215b" ~ "215(b)", # not used but in case it appears in future data
+      charge == "237s02AiI" ~ "237(a)(2)(A)(i)(I)",
+      charge == "2153g" ~ "215(g)",
+      charge == "2153h" ~ "215(h)",
+      TRUE ~ charge_str
     )
   )
 

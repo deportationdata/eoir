@@ -19,8 +19,7 @@ case_shift_finder <- local({
     "ADDRESS_CHANGEDON",
     "DATE_DETAINED",
     "DATE_RELEASED",
-    "DETENTION_DATE",
-    "C_BIRTHDATE"
+    "DETENTION_DATE"
   )
   non_date_cols <- c(
     "Sex",
@@ -83,7 +82,7 @@ cases_tbl <-
 # Pre-process ALIEN_ZIPCODE: strip ZIP+4 suffixes and pad leading zeros
 cases_tbl <- cases_tbl |>
   mutate(
-    ALIEN_ZIPCODE = str_extract(ALIEN_ZIPCODE, "^\\d{1,5}"),
+    ALIEN_ZIPCODE = str_extract(ALIEN_ZIPCODE, "^\\d{3,5}"),
     ALIEN_ZIPCODE = if_else(
       !is.na(ALIEN_ZIPCODE),
       str_pad(ALIEN_ZIPCODE, 5, pad = "0"),
@@ -214,9 +213,6 @@ cases_tbl <-
       dco_location,
       detention_facility_type,
       # Drop fields that duplicate proceedings-level versions
-      custody,
-      nat,
-      lang,
       case_type,
       # Drop fields not needed in final output
       c_release_date,
