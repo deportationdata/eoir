@@ -73,3 +73,13 @@ jobs:
             --body "Automated update: new EOIR data detected and processed." \
             --reviewer graemeblair \
             --base main
+
+      - name: Trigger checks
+        if: steps.commit.outputs.new_data == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CHECKS_PAT }}
+        run: |
+          BRANCH=$(git branch --show-current)
+          gh api repos/deportationdata/checks/dispatches \
+            -f event_type=eoir-updated \
+            -f "client_payload[branch]=$BRANCH"
