@@ -1,0 +1,964 @@
++ Rscript scripts/geography_join.R
+- The project is out-of-sync -- use `renv::status()` for details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.0     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+Rows: 33803 Columns: 7
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+chr (7): zcta, state, stab, ZIPName, pop20, afact2, afact
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+slice: removed one row (<1%), 33,802 rows remaining
+
+── Column specification ────────────────────────────────────────────────────────
+cols(
+  zcta = col_character(),
+  state = col_character(),
+  stab = col_character(),
+  ZIPName = col_character(),
+  pop20 = col_double(),
+  afact2 = col_double(),
+  afact = col_double()
+)
+
+distinct: removed 33,750 rows (>99%), 52 rows remaining
+transmute: dropped one variable (stab)
+transmute: dropped one variable (stab)
+           new variable 'state_fips' (character) with 52 unique values and 0% NA
+           changed 52 values (100%) of 'state' (0 new NAs)
+Rows: 46964 Columns: 7
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+chr (7): zcta, county, CountyName, ZIPName, pop20, afact2, afact
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+slice: removed one row (<1%), 46,963 rows remaining
+
+── Column specification ────────────────────────────────────────────────────────
+cols(
+  zcta = col_character(),
+  county = col_character(),
+  CountyName = col_character(),
+  ZIPName = col_character(),
+  pop20 = col_double(),
+  afact2 = col_double(),
+  afact = col_double()
+)
+
+filter: removed 334 rows (1%), 46,629 rows remaining
+group_by: one grouping variable (zcta)
+slice_max (grouped): removed 12,998 rows (28%), 33,631 rows remaining (removed 0 groups, 33,631 groups remaining)
+ungroup: no grouping variables remain
+mutate: new variable 'county_fips' (character) with 3,215 unique values and 0% NA
+        new variable 'state_fips' (character) with 52 unique values and 0% NA
+left_join: added one column (state)
+           > rows only in mutate(ungroup(slice_ma..       0
+           > rows only in state_lookup              (     0)
+           > matched rows                            33,631
+           >                                        ========
+           > rows total                              33,631
+transmute: dropped 5 variables (CountyName, ZIPName, pop20, afact2, afact)
+transmute: dropped 5 variables (CountyName, ZIPName, pop20, afact2, afact)
+           changed 33,631 values (100%) of 'county' (0 new NAs)
+Rows: 76486 Columns: 9
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+chr (9): zcta, state, place, stab, PlaceName, ZIPName, pop20, afact2, afact
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+slice: removed one row (<1%), 76,485 rows remaining
+
+── Column specification ────────────────────────────────────────────────────────
+cols(
+  zcta = col_character(),
+  state = col_character(),
+  place = col_character(),
+  stab = col_character(),
+  PlaceName = col_character(),
+  ZIPName = col_character(),
+  pop20 = col_double(),
+  afact2 = col_double(),
+  afact = col_double()
+)
+
+filter: removed 75 rows (<1%), 76,410 rows remaining
+group_by: one grouping variable (zcta)
+slice_max (grouped): removed 42,779 rows (56%), 33,631 rows remaining (removed 0 groups, 33,631 groups remaining)
+ungroup: no grouping variables remain
+rename: renamed one variable (place_fips)
+transmute: dropped 7 variables (state, stab, PlaceName, ZIPName, pop20, …)
+transmute: dropped 7 variables (state, stab, PlaceName, ZIPName, pop20, …)
+           new variable 'place' (character) with 11,165 unique values and 48% NA
+           changed 16,267 values (48%) of 'place_fips' (16,267 new NAs)
+Rows: 47863 Columns: 18
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: "|"
+chr (10): GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, MTFCC_ZCTA5_20, CLASSFP_ZCTA5_2...
+dbl  (8): OID_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, OID_COUNTY_20...
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+filter: removed 47,843 rows (>99%), 20 rows remaining
+group_by: one grouping variable (GEOID_ZCTA5_20)
+slice_max (grouped): removed 3 rows (15%), 17 rows remaining (removed 0 groups, 17 groups remaining)
+ungroup: no grouping variables remain
+transmute: dropped 18 variables (OID_ZCTA5_20, GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, …)
+transmute: dropped 18 variables (OID_ZCTA5_20, GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, …)
+           new variable 'zcta' (character) with 17 unique values and 0% NA
+           new variable 'state_fips' (character) with 4 unique values and 0% NA
+           new variable 'county' (character) with 8 unique values and 0% NA
+           new variable 'county_fips' (character) with 8 unique values and 0% NA
+left_join: added one column (state)
+           > rows only in transmute(ungroup(slice..   0
+           > rows only in territory_state_lookup    ( 0)
+           > matched rows                            17
+           >                                        ====
+           > rows total                              17
+Rows: 82880 Columns: 18
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: "|"
+chr (10): GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, MTFCC_ZCTA5_20, CLASSFP_ZCTA5_2...
+dbl  (8): OID_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, OID_PLACE_20,...
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+filter: removed 82,610 rows (>99%), 270 rows remaining
+group_by: one grouping variable (GEOID_ZCTA5_20)
+slice_max (grouped): removed 255 rows (94%), 15 rows remaining (removed 0 groups, 15 groups remaining)
+ungroup: no grouping variables remain
+transmute: dropped 18 variables (OID_ZCTA5_20, GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, …)
+transmute: dropped 18 variables (OID_ZCTA5_20, GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, …)
+           new variable 'zcta' (character) with 15 unique values and 0% NA
+           new variable 'place' (character) with 15 unique values and 0% NA
+           new variable 'place_fips' (character) with 15 unique values and 0% NA
+left_join: added 2 columns (place, place_fips)
+           > rows only in territory_county   2
+           > rows only in territory_place  ( 0)
+           > matched rows                   15
+           >                               ====
+           > rows total                     17
+select: columns reordered (zcta, state, state_fips, county, county_fips, …)
+left_join: added 2 columns (place, place_fips)
+           > rows only in zcta_county       0
+           > rows only in zcta_place  (     0)
+           > matched rows              33,631
+           >                          ========
+           > rows total                33,631
++ Rscript scripts/eoir_appeals.R
+- The project is out-of-sync -- use `renv::status()` for details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.0     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+
+Attaching package: ‘pointblank’
+
+The following object is masked from ‘package:data.table’:
+
+    between
+
+auto_fix_tab_shifts summary: 0 fixed, 0 dropped
+auto_fix_tab_shifts validation: row count OK (1469874 - 0 dropped = 1469874)
+auto_fix_tab_shifts validation: 5000 sampled untouched rows verified unchanged
+mutate: no changes
+select: no changes
+mutate: no changes
+Warning messages:
+1: Exceedance of failed test units where values in `strBIADecision` should have been in the set of `ABC`, `ACR`, `ADM` (and 51 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00023) >= failure threshold (1e-04) 
+2: Exceedance of failed test units where values in `strNat` should have been in the set of `<A>`, `??`, `AB` (and 254 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00044) >= failure threshold (1e-04) 
+3: Exceedance of failed test units where values in `strLang` should have been in the set of `BYE`, `DIO`, `DIU` (and 736 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00026) >= failure threshold (1e-04) 
+rename: renamed 8 variables (appeal_type, appeal_filed_date, appeal_filed_by_code, e27_date, bia_decision_date, …)
++ Rscript scripts/eoir_associated_bond.R
+- The project is out-of-sync -- use `renv::status()` for details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.0     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+
+Attaching package: ‘pointblank’
+
+The following object is masked from ‘package:data.table’:
+
+    between
+
+auto_fix_tab_shifts: 7 overflow-shifted rows detected
+auto_fix_tab_shifts summary: 7 fixed, 0 dropped
+auto_fix_tab_shifts validation: 7 fixes verified, 0 unfixable dropped
+auto_fix_tab_shifts validation: row count OK (1594250 - 0 dropped = 1594250)
+auto_fix_tab_shifts validation: 5000 sampled untouched rows verified unchanged
+mutate: changed one value (<1%) of 'IJ_CODE' (0 new NAs)
+        changed 11 values (<1%) of 'INS_TA' (0 new NAs)
+        changed 3 values (<1%) of 'APPEAL_REVD' (0 new NAs)
+select: dropped 2 variables (V1, V2)
+mutate: changed 9 values (<1%) of 'INS_TA' (9 new NAs)
+        changed 3 values (<1%) of 'APPEAL_REVD' (3 new NAs)
+Warning message:
+Exceedance of failed test units where values in `IJ_CODE` should have been in the set of `AA`, `AAA`, `AAB` (and 1515 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (0.001).
+* failure level (0.0022) >= failure threshold (0.001) 
+rename: renamed 5 variables (bond_decision, bond_completion_date, initial_bond_amount, bond_hearing_request_date, new_bond_amount)
+Warning message:
+The `col_vals_expr()` validation failed beyond the proportional threshold level (0.001).
+* failure level (0.00107) >= failure threshold (0.001) 
+mutate: changed 1,328,714 values (>99%) of 'bond_decision' (0 new NAs)
++ Rscript scripts/eoir_case.R
+- The project is out-of-sync -- use `renv::status()` for details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.0     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+
+Attaching package: ‘pointblank’
+
+The following object is masked from ‘package:data.table’:
+
+    between
+
+auto_fix_tab_shifts: 100 overflow-shifted rows detected
+auto_fix_tab_shifts summary: 100 fixed, 0 dropped
+auto_fix_tab_shifts: dropping 2 rows with unresolvable multi-point tab shifts: rows 11121908, 11920423
+  Details: ADDRESS_CHANGEDON='10/1993' (expected date); UP_BOND_DATE='ORL' (expected date); ADDRESS_CHANGEDON='E' (expected date); DETENTION_DATE='F' (expected date)
+auto_fix_tab_shifts validation: 98 fixes verified, 2 unfixable dropped
+auto_fix_tab_shifts validation: row count OK (12499851 - 2 dropped = 12499849)
+auto_fix_tab_shifts validation: 5000 sampled untouched rows verified unchanged
+mutate: changed 6,304 values (<1%) of 'ALIEN_CITY' (0 new NAs)
+        changed 48 values (<1%) of 'UPDATED_CITY' (0 new NAs)
+        changed 20 values (<1%) of 'DETENTION_LOCATION' (0 new NAs)
+        changed 12 values (<1%) of 'DCO_LOCATION' (0 new NAs)
+select: dropped 8 variables (V1, V2, V3, V4, V5, …)
+mutate: no changes
+mutate: changed 37,854 values (<1%) of 'ALIEN_ZIPCODE' (36,073 new NAs)
+Warning message:
+Exceedance of failed test units where values in `NAT` should have been in the set of `<A>`, `??`, `AB` (and 254 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00021) >= failure threshold (1e-04) 
+rename: renamed 4 variables (e28_date, asylum_claim_type, sex_code, case_priority_code)
+select: dropped 27 variables (alien_city, updated_zipcode, updated_city, site_type, atty_nbr, …)
+mutate: new variable 'birth_year' (integer) with 164 unique values and 46% NA
+select: dropped one variable (c_birthdate)
++ Rscript scripts/eoir_court_applications.R
+- The project is out-of-sync -- use `renv::status()` for details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.0     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+
+Attaching package: ‘pointblank’
+
+The following object is masked from ‘package:data.table’:
+
+    between
+
+auto_fix_tab_shifts: 15 overflow-shifted rows detected
+auto_fix_tab_shifts summary: 15 fixed, 0 dropped
+auto_fix_tab_shifts validation: 15 fixes verified, 0 unfixable dropped
+auto_fix_tab_shifts validation: row count OK (15824917 - 0 dropped = 15824917)
+auto_fix_tab_shifts validation: 5000 sampled untouched rows verified unchanged
+mutate: changed 7 values (<1%) of 'APPL_CODE' (0 new NAs)
+        changed 4 values (<1%) of 'APPL_DEC' (0 new NAs)
+select: dropped one variable (V1)
+mutate: changed 6 values (<1%) of 'APPL_CODE' (6 new NAs)
+        changed 4 values (<1%) of 'APPL_DEC' (4 new NAs)
+Warning messages:
+1: Exceedance of failed test units where values in `APPL_CODE` should have been in the set of `202`, `209c`, `2129` (and 38 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00458) >= failure threshold (1e-04) 
+2: Exceedance of failed test units where values in `APPL_DEC` should have been in the set of `A`, `C`, `D` (and 12 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00102) >= failure threshold (1e-04) 
+filter: no rows removed
++ Rscript scripts/eoir_custody_history.R
+- The project is out-of-sync -- use `renv::status()` for details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.0     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+
+Attaching package: ‘pointblank’
+
+The following object is masked from ‘package:data.table’:
+
+    between
+
+auto_fix_tab_shifts summary: 0 fixed, 0 dropped
+auto_fix_tab_shifts validation: row count OK (9827505 - 0 dropped = 9827505)
+auto_fix_tab_shifts validation: 5000 sampled untouched rows verified unchanged
+mutate: no changes
+select: no changes
+mutate: no changes
+rename: renamed 2 variables (date_detained, date_released)
++ Rscript scripts/eoir_lookups.R
+- The project is out-of-sync -- use `renv::status()` for details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.0     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+
+Attaching package: ‘pointblank’
+
+The following object is masked from ‘package:data.table’:
+
+    between
+
+filter: removed 122 rows (56%), 95 rows remaining
+transmute: dropped 9 variables (idn_court_decision, str_case_type, str_dec_code, str_dec_description, str_dec_type, …)
+transmute: dropped 9 variables (idn_court_decision, str_case_type, str_dec_code, str_dec_description, str_dec_type, …)
+           new variable 'case_type_code' (character) with 13 unique values and 0% NA
+           new variable 'dec_code' (character) with 21 unique values and 0% NA
+           new variable 'case_outcome' (character) with 38 unique values and 0% NA
+filter: removed 95 rows (44%), 122 rows remaining
+transmute: dropped 9 variables (idn_court_decision, str_case_type, str_dec_code, str_dec_description, str_dec_type, …)
+transmute: dropped 9 variables (idn_court_decision, str_case_type, str_dec_code, str_dec_description, str_dec_type, …)
+           new variable 'case_type_code' (character) with 13 unique values and 0% NA
+           new variable 'other_comp' (character) with 12 unique values and 0% NA
+           new variable 'other_completion' (character) with 12 unique values and 0% NA
++ Rscript scripts/eoir_proceeding.R
+- The project is out-of-sync -- use `renv::status()` for details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.0     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+
+Attaching package: ‘pointblank’
+
+The following object is masked from ‘package:data.table’:
+
+    between
+
+collapse 2.1.6, see ?`collapse-package` or ?`collapse-documentation`
+
+Attaching package: ‘collapse’
+
+The following object is masked from ‘package:data.table’:
+
+    fdroplevels
+
+The following object is masked from ‘package:tidylog’:
+
+    replace_na
+
+The following object is masked from ‘package:tidyr’:
+
+    replace_na
+
+The following object is masked from ‘package:stats’:
+
+    D
+
+auto_fix_tab_shifts: 71 overflow-shifted rows detected
+auto_fix_tab_shifts summary: 71 fixed, 0 dropped
+auto_fix_tab_shifts validation: 71 fixes verified, 0 unfixable dropped
+auto_fix_tab_shifts validation: row count OK (16286295 - 0 dropped = 16286295)
+auto_fix_tab_shifts validation: 5000 sampled untouched rows verified unchanged
+mutate: changed one value (<1%) of 'IJ_CODE' (0 new NAs)
+        changed one value (<1%) of 'PREV_HEARING_LOC' (0 new NAs)
+        changed 3 values (<1%) of 'DEC_TYPE' (0 new NAs)
+        changed one value (<1%) of 'DEPORTED_1' (0 new NAs)
+        changed 17 values (<1%) of 'DEPORTED_2' (0 new NAs)
+        changed 6 values (<1%) of 'APPEAL_RSVD' (0 new NAs)
+        changed 8 values (<1%) of 'TRANSFER_TO' (0 new NAs)
+        changed 53 values (<1%) of 'CUSTODY' (0 new NAs)
+select: dropped 2 variables (V1, V2)
+mutate: changed one value (<1%) of 'PREV_HEARING_LOC' (one new NA)
+        changed 3 values (<1%) of 'DEC_TYPE' (3 new NAs)
+        changed one value (<1%) of 'DEPORTED_1' (one new NA)
+        changed 16 values (<1%) of 'DEPORTED_2' (16 new NAs)
+        changed 6 values (<1%) of 'APPEAL_RSVD' (6 new NAs)
+        changed 8 values (<1%) of 'TRANSFER_TO' (8 new NAs)
+        changed 53 values (<1%) of 'CUSTODY' (53 new NAs)
+Warning messages:
+1: Exceedance of failed test units where values in `NAT` should have been in the set of `<A>`, `??`, `AB` (and 254 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00025) >= failure threshold (1e-04) 
+2: Exceedance of failed test units where values in `TRANSFER_TO` should have been in the set of `AGA`, `ATL`, `BAL` (and 95 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.01807) >= failure threshold (1e-04) 
+3: Exceedance of failed test units where values in `IJ_CODE` should have been in the set of `AA`, `AAA`, `AAB` (and 1515 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.0019) >= failure threshold (1e-04) 
+4: Exceedance of failed test units where values in `PREV_IJ_CODE` should have been in the set of `AA`, `AAA`, `AAB` (and 1515 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00016) >= failure threshold (1e-04) 
+Warning message:
+In eval(jsub, SDenv, parent.frame()) : NAs introduced by coercion
+rename: renamed 7 variables (nta_date, judge_code, in_absentia, custody_code, case_type_code, …)
+mutate: converted 'in_absentia' from character to logical (3799876 fewer NA)
+filter: removed 2 rows (<1%), 16,286,293 rows remaining
+filter: removed 254 rows (<1%), 16,286,039 rows remaining
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1683824   90.0   35698516  1906.6   44623144  2383.2
+Vcells 532956455 4066.2 1961493232 14965.1 3827746605 29203.4
+Warning message:
+Exceedance of failed test units where values in `final_completion_date` should not have been NULL.
+The `col_vals_not_null()` validation failed beyond the proportional threshold level (0.25).
+* failure level (0.26836) >= failure threshold (0.25) 
++ Rscript scripts/eoir_proceedings_charges.R
+- The project is out-of-sync -- use `renv::status()` for details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.0     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+
+Attaching package: ‘pointblank’
+
+The following object is masked from ‘package:data.table’:
+
+    between
+
+auto_fix_tab_shifts summary: 0 fixed, 0 dropped
+auto_fix_tab_shifts validation: row count OK (18566406 - 0 dropped = 18566406)
+auto_fix_tab_shifts validation: 5000 sampled untouched rows verified unchanged
+mutate: changed 4,660,959 values (25%) of 'CHARGE' (0 new NAs)
+        changed 36 values (<1%) of 'CHG_STATUS' (0 new NAs)
+select: dropped one variable (V1)
+mutate: changed one value (<1%) of 'CHARGE' (one new NA)
+        changed 36 values (<1%) of 'CHG_STATUS' (36 new NAs)
+mutate: new variable 'charge_str' (character) with 324 unique values and <1% NA
+        new variable 'section' (character) with 20 unique values and <1% NA
+        new variable 'remainder' (character) with 238 unique values and <1% NA
+mutate: changed 206 values (<1%) of 'charge_str' (0 new NAs)
+distinct: removed 80,905 rows (<1%), 18,485,501 rows remaining
++ Rscript scripts/eoir_case_joins.R
+- The project is out-of-sync -- use `renv::status()` for details.
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.0     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:pointblank’:
+
+    between
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+left_join: added 8 columns (detention_start_1, detention_start_2, detention_start_3, detention_start_4, detention_end_1, …)
+           > rows only in cases                    3,448,998
+           > rows only in custodyhistory_by_case (   361,716)
+           > matched rows                          8,916,644
+           >                                     ============
+           > rows total                           12,365,642
+            used   (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells   1697403   90.7    3158234  168.7   2289895  122.3
+Vcells 262742363 2004.6  797187032 6082.1 796385993 6076.0
+select: no changes
+inner_join: added 11 columns (alien_state, alien_zipcode, nat, lang, custody, …)
+            > rows only in cases    (        26)
+            > rows only in case_tbl (   134,233)
+            > matched rows           12,365,616
+            >                       ============
+            > rows total             12,365,616
+inner_join with case table: 12365642 -> 12365616 rows (26 dropped)
+            used   (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells   1734864   92.7    3158234  168.7   2289895  122.3
+Vcells 392632734 2995.6 1164851991 8887.2 983035844 7500.0
+Error in `.fun()`:
+! Can't select columns that don't exist.
+✖ Column `nationality` doesn't exist.
+Backtrace:
+     ▆
+  1. ├─tidylog::rename(...)
+  2. │ └─tidylog:::log_rename(...)
+  3. ├─tidylog::select(cases, -nationality, -language, -custody_code)
+  4. │ └─tidylog:::log_select(...)
+  5. │   ├─dplyr (local) .fun(.data, ...)
+  6. │   └─dplyr:::select.data.frame(.data, ...)
+  7. │     └─tidyselect::eval_select(expr(c(...)), data = .data, error_call = error_call)
+  8. │       └─tidyselect:::eval_select_impl(...)
+  9. │         ├─tidyselect:::with_subscript_errors(...)
+ 10. │         │ └─base::withCallingHandlers(...)
+ 11. │         └─tidyselect:::vars_select_eval(...)
+ 12. │           └─tidyselect:::walk_data_tree(expr, data_mask, context_mask)
+ 13. │             └─tidyselect:::eval_c(expr, data_mask, context_mask)
+ 14. │               └─tidyselect:::reduce_sels(node, data_mask, context_mask, init = init)
+ 15. │                 └─tidyselect:::walk_data_tree(new, data_mask, context_mask)
+ 16. │                   └─tidyselect:::as_indices_sel_impl(...)
+ 17. │                     └─tidyselect:::as_indices_impl(...)
+ 18. │                       └─tidyselect:::chr_as_locations(x, vars, call = call, arg = arg)
+ 19. │                         └─vctrs::vec_as_location(...)
+ 20. └─vctrs (local) `<fn>`()
+ 21.   └─vctrs:::stop_subscript_oob(...)
+ 22.     └─vctrs:::stop_subscript(...)
+ 23.       └─rlang::abort(...)
+Execution halted

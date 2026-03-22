@@ -417,7 +417,19 @@ cases |>
 
 cases <-
   cases |>
-  mutate(across(where(is.POSIXct), ~ as.Date(.x, tz = "UTC"))) |>
+  mutate(
+    across(where(is.POSIXct), ~ as.Date(.x, tz = "UTC")),
+    across(
+      where(is.character) &
+        !contains("_code") &
+        !contains("_court") &
+        !contains("judge_name") &
+        !contains("charge_section") &
+        !contains("fips") &
+        !contains("state"),
+      ~ str_to_title(.x)
+    )
+  ) |>
   relocate(
     # Case identifiers
     idncase,
@@ -545,39 +557,3 @@ arrow::write_parquet(
   "outputs/cases-no-codes.parquet",
   compression = "ZSTD"
 )
-
-# Encode string variables as labelled integers (replicates Stata's encode + compress)
-cases <-
-  cases |>
-  mutate(across(
-    any_of(c(
-      "case_outcome",
-      "bia_decision",
-      "nationality",
-      "judge_name",
-      "language",
-      "bond_decision",
-      "case_priority",
-      "appeal_type",
-      "sex_code",
-      "custody",
-      "first_court",
-      "final_court",
-      "charge_code_1",
-      "charge_code_2",
-      "charge_code_3",
-      "charge_code_4",
-      "respondent_state",
-      "asylum_claim_type",
-      "case_type",
-      "bia_decision_type",
-      "appeal_filed_by",
-      "custody_at_appeal"
-    )),
-    \(x) {
-      vals <- sort(unique(na.omit(x)))
-      haven::labelled(match(x, vals), labels = setNames(seq_along(vals), vals))
-    }
-  ))
-
-haven::write_dta(cases, "outputs/cases.dta", version = 15)
