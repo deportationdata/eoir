@@ -184,12 +184,12 @@ cases <-
   cases |>
   mutate(
     case_outcome = coalesce(case_outcome, other_completion),
-    relief_granted = case_outcome %in% "Relief Granted",
-    terminated = case_outcome %in% c("Terminate", "Terminated"),
-    final_completion_year = year(final_completion_date),
-    case_length_days = as.numeric(
-      difftime(final_completion_date, nta_date, units = "days")
-    ),
+    # relief_granted = case_outcome %in% "Relief Granted",
+    # terminated = case_outcome %in% c("Terminate", "Terminated"),
+    # final_completion_year = year(final_completion_date),
+    # case_length_days = as.numeric(
+    #   difftime(final_completion_date, nta_date, units = "days")
+    # ),
     across(
       c(
         asylum_application,
@@ -400,19 +400,19 @@ cases |>
     preconditions = \(x) dplyr::filter(x, !is.na(case_type_code)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
-  col_vals_gte(
-    case_length_days,
-    0,
-    na_pass = TRUE,
-    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  ) |>
-  col_vals_between(
-    final_completion_year,
-    1985L,
-    as.integer(format(Sys.Date(), "%Y")) + 1L,
-    na_pass = TRUE,
-    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  ) |>
+  # col_vals_gte(
+  #   case_length_days,
+  #   0,
+  #   na_pass = TRUE,
+  #   actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  # ) |>
+  # col_vals_between(
+  #   final_completion_year,
+  #   1985L,
+  #   as.integer(format(Sys.Date(), "%Y")) + 1L,
+  #   na_pass = TRUE,
+  #   actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  # ) |>
   invisible()
 
 cases <-
@@ -469,8 +469,6 @@ cases <-
     in_absentia,
     ij_final_date,
     final_completion_date,
-    final_completion_year,
-    case_length_days,
 
     # Custody & detention
     custody_code,
@@ -502,8 +500,6 @@ cases <-
 
     # IJ outcome
     case_outcome,
-    relief_granted,
-    terminated,
 
     # BIA appeal
     appeal_type_code,
@@ -528,7 +524,8 @@ cases <-
     !is.na(nta_date) & nta_date >= as.Date("1997-10-01"),
     # keep only standard removal proceedings (all new cases will be RMV after 1996)
     case_type_code == "RMV"
-  )
+  ) |>
+  select(-case_type_code, -case_type)
 
 arrow::write_parquet(
   cases,
@@ -549,8 +546,9 @@ arrow::write_parquet(
   compression = "ZSTD"
 )
 
-# Encode string variables as factors to save space in Stata file
-cases <- cases |>
+# Encode string variables as labelled integers (replicates Stata's encode + compress)
+cases <-
+  cases |>
   mutate(across(
     any_of(c(
       "case_outcome",
@@ -576,7 +574,10 @@ cases <- cases |>
       "appeal_filed_by",
       "custody_at_appeal"
     )),
-    \(x) factor(x)
+    \(x) {
+      vals <- sort(unique(na.omit(x)))
+      haven::labelled(match(x, vals), labels = setNames(seq_along(vals), vals))
+    }
   ))
 
-readstata13::save.dta13(cases, "outputs/cases.dta", compress = TRUE)
+haven::write_dta(cases, "outputs/cases.dta", version = 15)
