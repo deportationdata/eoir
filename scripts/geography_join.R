@@ -30,13 +30,13 @@ state_lookup <- read_csv(
   type_convert() |>
   distinct(state, stab) |>
   transmute(
-    state_fips = str_pad(state, 2, pad = "0"),
+    state_fips_code = str_pad(state, 2, pad = "0"),
     state = stab
   )
 
 # --- ZIP → state + county from geocorr (ZCTA → county) ---
 # County file has: zcta, county (5-digit FIPS), CountyName ("Name ST")
-# State and state_fips derived from county FIPS; state abbreviation from state file.
+# State and state_fips_code derived from county FIPS; state abbreviation from state file.
 zcta_county <- read_csv(
   "inputs/geocorr2022_2607608761_county.csv"
 ) |>
@@ -47,17 +47,17 @@ zcta_county <- read_csv(
   slice_max(afact, n = 1, with_ties = FALSE) |>
   ungroup() |>
   mutate(
-    county_fips = str_pad(county, 5, pad = "0"),
-    state_fips = str_sub(county_fips, 1, 2)
+    county_fips_code = str_pad(county, 5, pad = "0"),
+    state_fips_code = str_sub(county_fips_code, 1, 2)
   ) |>
-  left_join(state_lookup, by = "state_fips") |>
+  left_join(state_lookup, by = "state_fips_code") |>
   transmute(
     zcta,
     state,
-    state_fips,
+    state_fips_code,
     county = str_remove(CountyName, ",? [A-Z]{2}(\\s*\\(.*\\))?$") |>
       str_squish(),
-    county_fips
+    county_fips_code
   )
 
 # --- ZIP → place from geocorr (ZCTA → place) ---
@@ -70,18 +70,18 @@ zcta_place <- read_csv(
   group_by(zcta) |>
   slice_max(afact, n = 1, with_ties = FALSE) |>
   ungroup() |>
-  rename(place_fips = place) |>
+  rename(place_fips_code = place) |>
   transmute(
     zcta,
     place = if_else(
-      place_fips == "99999",
+      place_fips_code == "99999",
       NA_character_,
       PlaceName |>
         str_remove(",? [A-Z]{2}$") |>
         str_remove("\\s*\\(.*\\)") |>
         str_squish()
     ),
-    place_fips = na_if(place_fips, "99999")
+    place_fips_code = na_if(place_fips_code, "99999")
   )
 
 # --- Territory supplement from Census 2020 relationship files (AS, GU, MP, VI) ---
@@ -89,7 +89,7 @@ zcta_place <- read_csv(
 # These use area-weighted allocation (AREALAND_PART).
 territory_fips <- c("60", "66", "69", "78")
 territory_state_lookup <- tribble(
-  ~state_fips , ~state ,
+  ~state_fips_code , ~state ,
   "60"        , "AS"   ,
   "66"        , "GU"   ,
   "69"        , "MP"   ,
@@ -110,14 +110,14 @@ territory_county <- read_delim(
   ungroup() |>
   transmute(
     zcta = GEOID_ZCTA5_20,
-    state_fips = str_sub(GEOID_COUNTY_20, 1, 2),
+    state_fips_code = str_sub(GEOID_COUNTY_20, 1, 2),
     county = str_remove(
       NAMELSAD_COUNTY_20,
       " (County|Borough|Census Area|Municipality|District|Island|Municipio)$"
     ),
-    county_fips = GEOID_COUNTY_20
+    county_fips_code = GEOID_COUNTY_20
   ) |>
-  left_join(territory_state_lookup, by = "state_fips")
+  left_join(territory_state_lookup, by = "state_fips_code")
 
 territory_place <- read_delim(
   "inputs/tab20_zcta520_place20_natl.txt",
@@ -136,11 +136,11 @@ territory_place <- read_delim(
     place = NAMELSAD_PLACE_20 |>
       str_remove("\\s*\\(.*\\)") |>
       str_squish(),
-    place_fips = str_sub(GEOID_PLACE_20, 3, 7)
+    place_fips_code = str_sub(GEOID_PLACE_20, 3, 7)
   )
 
 territory_lookup <- left_join(territory_county, territory_place, by = "zcta") |>
-  select(zcta, state, state_fips, county, county_fips, place, place_fips)
+  select(zcta, state, state_fips_code, county, county_fips_code, place, place_fips_code)
 
 # --- Combine geocorr + territory lookups ---
 zip_lookup <-
@@ -155,12 +155,12 @@ territories <- c("AS", "GU", "MP", "PR", "VI")
 zip_lookup |>
   col_vals_not_null(zcta) |>
   col_vals_not_null(state) |>
-  col_vals_not_null(state_fips) |>
+  col_vals_not_null(state_fips_code) |>
   col_vals_not_null(county) |>
-  col_vals_not_null(county_fips) |>
+  col_vals_not_null(county_fips_code) |>
   col_vals_regex(zcta, "^\\d{5}$") |>
-  col_vals_regex(state_fips, "^\\d{2}$") |>
-  col_vals_regex(county_fips, "^\\d{5}$") |>
+  col_vals_regex(state_fips_code, "^\\d{2}$") |>
+  col_vals_regex(county_fips_code, "^\\d{5}$") |>
   rows_distinct(zcta) |>
   # County and place names should not end with state abbreviations
   col_vals_expr(

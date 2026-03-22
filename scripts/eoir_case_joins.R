@@ -87,7 +87,7 @@ cases |>
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_regex(
-    county_fips,
+    county_fips_code,
     "^\\d{5}$",
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
@@ -428,6 +428,15 @@ cases <-
         !contains("fips") &
         !contains("state"),
       ~ str_to_title(.x)
+    ),
+    across(
+      c(custody_code, custody_at_appeal_code),
+      ~ str_to_title(.x)
+    ),
+    across(
+      c(first_court, final_court),
+      # replace to title case but keep court codes in parentheses uppercase
+      ~ str_replace(.x, "^([^(]+)", \(m) str_to_title(m))
     )
   ) |>
   relocate(
@@ -451,11 +460,11 @@ cases <-
 
     # Geography
     state,
-    state_fips,
+    state_fips_code,
     county,
-    county_fips,
+    county_fips_code,
     place,
-    place_fips,
+    place_fips_code,
 
     # Entry & initiation
     date_of_entry,
@@ -541,19 +550,21 @@ cases <-
 
 arrow::write_parquet(
   cases,
-  "outputs/cases.parquet",
+  "data/cases.parquet",
   compression = "ZSTD"
 )
 
 arrow::write_parquet(
   cases |>
     select(
-      -ends_with("_code"),
-      first_hearing_location_code,
-      last_hearing_location_code,
-      custody_code,
-      custody_at_appeal_code
+      !ends_with("_code") |
+        any_of(c(
+          "first_hearing_location_code",
+          "last_hearing_location_code",
+          "custody_code",
+          "custody_at_appeal_code"
+        ))
     ),
-  "outputs/cases-no-codes.parquet",
+  "data/cases-no-codes.parquet",
   compression = "ZSTD"
 )
