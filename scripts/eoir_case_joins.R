@@ -209,8 +209,8 @@ cases <-
 cases <-
   cases |>
   mutate(
-    custody_code = recode_values(
-      custody,
+    custody = recode_values(
+      custody_code,
       "N" ~ "never detained",
       "R" ~ "released",
       "D" ~ "detained throughout"
@@ -221,14 +221,13 @@ cases <-
       "E" ~ "defensive",
       "J" ~ "J"
     ),
-    custody_at_appeal_code = recode_values(
+    custody_at_appeal = recode_values(
       custody_at_appeal_code,
       "N" ~ "never detained",
       "R" ~ "released",
       "D" ~ "detained throughout"
     )
-  ) |>
-  select(-custody)
+  )
 
 # Resolve code columns to human-readable descriptions via lookup tables
 
@@ -380,7 +379,7 @@ cases |>
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    custody_code,
+    custody,
     c("never detained", "released", "detained throughout", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
@@ -427,10 +426,6 @@ cases <-
         !contains("charge_section") &
         !contains("fips") &
         !contains("state"),
-      ~ str_to_title(.x)
-    ),
-    across(
-      c(custody_code, custody_at_appeal_code),
       ~ str_to_title(.x)
     ),
     across(
@@ -485,7 +480,6 @@ cases <-
     judge_name,
 
     # IJ proceedings
-    first_proceeding_date,
     e28_date,
     in_absentia,
     ij_final_date,
@@ -493,6 +487,7 @@ cases <-
 
     # Custody & detention
     custody_code,
+    custody,
     detention_start_1,
     detention_end_1,
     detention_start_2,
@@ -530,6 +525,7 @@ cases <-
     appeal_filed_date,
     e27_date,
     custody_at_appeal_code,
+    custody_at_appeal,
     bia_decision_code,
     bia_decision,
     bia_decision_type_code,
@@ -560,9 +556,7 @@ arrow::write_parquet(
       !ends_with("_code") |
         any_of(c(
           "first_hearing_location_code",
-          "last_hearing_location_code",
-          "custody_code",
-          "custody_at_appeal_code"
+          "last_hearing_location_code"
         ))
     ),
   "data/cases-no-codes.parquet",

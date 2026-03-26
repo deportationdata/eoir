@@ -186,6 +186,7 @@ cases_tbl <-
   rename(
     asylum_claim_type = c_asy_type,
     sex_code = sex,
+    custody_code = custody,
     case_priority_code = casepriority_code,
     e28_date = e_28_date
   ) |>
