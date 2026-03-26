@@ -220,7 +220,6 @@ cases_from_proceedings <-
   rename(
     nta_date = osc_date,
     in_absentia = absentia,
-    custody_code = custody,
     case_type_code = case_type,
     judge_code = ij_code
   ) |>
@@ -251,7 +250,6 @@ setDT(cases_from_proceedings)
 cases_from_proceedings <-
   cases_from_proceedings[,
     .(
-      first_proceeding_date = first(comp_date),
       final_completion_date = last(comp_date),
       nta_date = first(nta_date),
       first_court = first(base_city_code),
@@ -260,7 +258,6 @@ cases_from_proceedings <-
       dec_code = last(dec_code),
       other_comp = last(other_comp),
       in_absentia = last(in_absentia),
-      custody_code = last(custody_code),
       first_hearing_location_code = first(hearing_loc_code),
       last_hearing_location_code = last(hearing_loc_code),
       judge_code = last(judge_code)
@@ -285,14 +282,6 @@ cases_from_proceedings |>
       is.na(nta_date) |
         is.na(final_completion_date) |
         nta_date <= final_completion_date
-    ),
-    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  ) |>
-  col_vals_expr(
-    expr(
-      is.na(first_proceeding_date) |
-        is.na(final_completion_date) |
-        first_proceeding_date <= final_completion_date
     ),
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
