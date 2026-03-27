@@ -92,6 +92,22 @@ custodyhistory_by_case <-
     by = idncase
   ]
 
+custodyhistory_by_case |>
+  as_tibble() |>
+  rows_distinct(idncase) |>
+  # Detention periods should be in chronological order
+  col_vals_expr(
+    expr(is.na(detention_start_1) | is.na(detention_start_2) |
+      detention_start_1 <= detention_start_2),
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  ) |>
+  col_vals_expr(
+    expr(is.na(detention_start_2) | is.na(detention_start_3) |
+      detention_start_2 <= detention_start_3),
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  ) |>
+  invisible()
+
 arrow::write_parquet(
   custodyhistory_by_case,
   "tmp/custodyhistory_cases.parquet"

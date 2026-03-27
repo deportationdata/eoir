@@ -55,6 +55,14 @@ message(sprintf(
   n_before_case - nrow(cases)
 ))
 
+# Inner join should not drop more than 1% of cases
+if (nrow(cases) < n_before_case * 0.99) {
+  warning(sprintf(
+    "inner_join with case table dropped %.1f%% of rows",
+    (1 - nrow(cases) / n_before_case) * 100
+  ))
+}
+
 rm(case_tbl)
 gc()
 
@@ -147,7 +155,23 @@ associated_bond_by_case <-
 
 cases <-
   cases |>
-  left_join(associated_bond_by_case, by = "idncase")
+  left_join(associated_bond_by_case, by = "idncase") |>
+  mutate(
+    # Zero new_bond_amount is meaningful only when the IJ actually granted a bond;
+    # for all other decisions the zero is an artifact, so replace with NA
+    new_bond_amount = if_else(
+      new_bond_amount == 0 &
+        !bond_decision %in%
+          c(
+            "AMELIORATION GRANTED",
+            "BOND GRANTED-AMOUNT DECREASED",
+            "BOND GRANTED-OWN RECOGNIZANCE",
+            "FLORES - RELEASE"
+          ),
+      NA_real_,
+      new_bond_amount
+    )
+  )
 
 rm(associated_bond_by_case)
 gc()
@@ -383,10 +407,71 @@ cases |>
     c("never detained", "released", "detained throughout", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
-  # Check that new lookup joins resolved most values
+  # Bond amounts should be non-negative when present
+  col_vals_gte(
+    initial_bond_amount,
+    0,
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_gte(
+    new_bond_amount,
+    0,
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  # Zero new_bond_amount should only remain for grant decisions
+  col_vals_gt(
+    new_bond_amount,
+    0,
+    na_pass = TRUE,
+    preconditions = \(x) {
+      dplyr::filter(
+        x,
+        !bond_decision %in%
+          c(
+            "AMELIORATION GRANTED",
+            "BOND GRANTED-AMOUNT DECREASED",
+            "BOND GRANTED-OWN RECOGNIZANCE"
+          )
+      )
+    },
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  # Check that lookup joins resolved most values
   col_vals_not_null(
-    bia_decision_type,
-    preconditions = \(x) dplyr::filter(x, !is.na(bia_decision_type_code)),
+    language,
+    preconditions = \(x) dplyr::filter(x, !is.na(language_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    nationality,
+    preconditions = \(x) dplyr::filter(x, !is.na(nationality_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    sex,
+    preconditions = \(x) dplyr::filter(x, !is.na(sex_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    case_priority,
+    preconditions = \(x) dplyr::filter(x, !is.na(case_priority_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    case_type,
+    preconditions = \(x) dplyr::filter(x, !is.na(case_type_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    judge_name,
+    preconditions = \(x) dplyr::filter(x, !is.na(judge_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    appeal_type,
+    preconditions = \(x) dplyr::filter(x, !is.na(appeal_type_code)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
@@ -395,8 +480,24 @@ cases |>
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
-    case_type,
-    preconditions = \(x) dplyr::filter(x, !is.na(case_type_code)),
+    bia_decision,
+    preconditions = \(x) dplyr::filter(x, !is.na(bia_decision_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    bia_decision_type,
+    preconditions = \(x) dplyr::filter(x, !is.na(bia_decision_type_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  # Check that recodes resolved values (custody/custody_at_appeal should not be NA when code is present)
+  col_vals_not_null(
+    custody,
+    preconditions = \(x) dplyr::filter(x, !is.na(custody_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    custody_at_appeal,
+    preconditions = \(x) dplyr::filter(x, !is.na(custody_at_appeal_code)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   # col_vals_gte(
@@ -414,6 +515,14 @@ cases |>
   # ) |>
   invisible()
 
+make_abbr_caps <- function(x, abbr) {
+  for (a in abbr) {
+    pattern <- if (str_detect(a, "/")) a else paste0("\\b", a, "\\b")
+    x <- str_replace_all(x, regex(pattern, ignore_case = TRUE), a)
+  }
+  x
+}
+
 cases <-
   cases |>
   mutate(
@@ -426,7 +535,25 @@ cases <-
         !contains("charge_section") &
         !contains("fips") &
         !contains("state"),
-      ~ str_to_title(.x)
+      ~ str_to_title(.x) |>
+        make_abbr_caps(
+          abbr = c(
+            "ABC",
+            "BIA",
+            "CAT",
+            "CFV",
+            "CPC",
+            "DHS",
+            "EOIR",
+            "IJ",
+            "INA",
+            "ORR",
+            "PD",
+            "ROP",
+            "V/D",
+            "VD"
+          )
+        )
     ),
     across(
       c(first_court, final_court),
