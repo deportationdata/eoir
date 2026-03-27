@@ -14,3 +14,7 @@ cases <-
   ))
 
 haven::write_dta(cases, "data/cases.dta", version = 15)
+
+# use cases.dta
+# compress
+# save cases.dta, replace
