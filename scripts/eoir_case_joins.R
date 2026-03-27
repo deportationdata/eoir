@@ -281,7 +281,7 @@ cases <- cases |>
   rename(nationality_code = nat) |>
   left_join(
     tblLookupAlienNat |>
-      filter(!is.na(str_code)) |> # TODO: discuss with David - Netherlands Antilles was NA
+      filter(!is.na(str_code)) |>
       select(str_code, nationality = str_description),
     by = c("nationality_code" = "str_code"),
     relationship = "many-to-one"
