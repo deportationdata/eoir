@@ -92,6 +92,19 @@ court_applications_by_case <-
   ] |>
   filter(!is.na(idncase))
 
+court_applications_by_case |>
+  rows_distinct(idncase) |>
+  # any_relief_application should be TRUE whenever a specific application is TRUE
+  col_vals_expr(
+    expr(
+      !asylum_application & !withholding_application & !cat_application &
+        !adjustment_application & !non_lpr_cancellation_application &
+        !lpr_cancellation_application | any_relief_application
+    ),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  invisible()
+
 arrow::write_parquet(
   court_applications_by_case,
   "tmp/court_applications_cases.parquet"

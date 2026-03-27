@@ -201,6 +201,16 @@ associated_bond_by_case <-
     )
   )
 
+associated_bond_by_case |>
+  rows_distinct(idncase) |>
+  # Verify recode resolved all single-letter codes
+  col_vals_not_in_set(
+    bond_decision,
+    c("G", "W", "D", "I", "E", "O", "F", "L", "A", "C", "J", "N", "S", "R"),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  invisible()
+
 arrow::write_parquet(
   associated_bond_by_case,
   "tmp/associated_bond_cases.parquet"

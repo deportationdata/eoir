@@ -154,6 +154,16 @@ appeals_by_case <-
     by = .(idncase)
   ]
 
+appeals_by_case |>
+  as_tibble() |>
+  rows_distinct(idncase) |>
+  col_vals_in_set(
+    custody_at_appeal_code,
+    c("D", "N", "R", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  invisible()
+
 arrow::write_parquet(
   appeals_by_case,
   "tmp/appeals_cases.parquet"

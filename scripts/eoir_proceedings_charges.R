@@ -132,6 +132,16 @@ charges_by_case <- charges_tbl[,
   by = idncase
 ]
 
+charges_by_case |>
+  as_tibble() |>
+  rows_distinct(idncase) |>
+  # Every case with charges should have at least charge_section_1
+  col_vals_not_null(
+    charge_section_1,
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  invisible()
+
 arrow::write_parquet(
   charges_by_case,
   "tmp/charges_cases.parquet"
