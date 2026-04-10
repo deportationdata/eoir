@@ -173,6 +173,8 @@ associated_bond_by_case <-
   associated_bond_tbl[,
     .(
       bond_completion_date = last(bond_completion_date),
+      bond_court_code = last(base_city_code),
+      bond_judge_code = last(ij_code),
       bond_hearing_request_date = last(bond_hearing_request_date),
       bond_decision = last(bond_decision),
       initial_bond_amount = last(initial_bond_amount),
