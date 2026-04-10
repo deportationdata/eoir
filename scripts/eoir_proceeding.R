@@ -252,8 +252,8 @@ cases_from_proceedings <-
     .(
       final_completion_date = last(comp_date),
       nta_date = first(nta_date),
-      first_court = first(base_city_code),
-      final_court = last(base_city_code),
+      first_court_code = first(base_city_code),
+      final_court_code = last(base_city_code),
       case_type_code = first(case_type_code),
       dec_code = last(dec_code),
       other_comp = last(other_comp),
@@ -286,7 +286,11 @@ cases_from_proceedings |>
     actions = action_levels(warn_at = 0.001, stop_at = 0.01)
   ) |>
   col_vals_not_null(
-    final_court,
+    first_court_code,
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    final_court_code,
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(

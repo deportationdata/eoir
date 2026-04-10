@@ -319,7 +319,6 @@ base_city_desc <-
   )
 
 cases <- cases |>
-  rename(first_court_code = first_court, final_court_code = final_court) |>
   left_join(
     base_city_desc |> rename(first_court = court_desc),
     by = c("first_court_code" = "base_city_code"),
@@ -328,6 +327,11 @@ cases <- cases |>
   left_join(
     base_city_desc |> rename(final_court = court_desc),
     by = c("final_court_code" = "base_city_code"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    base_city_desc |> rename(bond_court = court_desc),
+    by = c("bond_court_code" = "base_city_code"),
     relationship = "many-to-one"
   )
 
@@ -338,6 +342,13 @@ cases <- cases |>
       filter(!is.na(judge_code)) |>
       select(judge_code, judge_name),
     by = "judge_code",
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    tblLookupJudge |>
+      filter(!is.na(judge_code)) |>
+      select(judge_code, bond_judge_name = judge_name),
+    by = c("bond_judge_code" = "judge_code"),
     relationship = "many-to-one"
   )
 
@@ -500,19 +511,6 @@ cases |>
     preconditions = \(x) dplyr::filter(x, !is.na(custody_at_appeal_code)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
-  # col_vals_gte(
-  #   case_length_days,
-  #   0,
-  #   na_pass = TRUE,
-  #   actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  # ) |>
-  # col_vals_between(
-  #   final_completion_year,
-  #   1985L,
-  #   as.integer(format(Sys.Date(), "%Y")) + 1L,
-  #   na_pass = TRUE,
-  #   actions = action_levels(warn_at = 0.001, stop_at = 0.01)
-  # ) |>
   invisible()
 
 make_abbr_caps <- function(x, abbr) {
@@ -625,6 +623,10 @@ cases <-
     detention_end_4,
 
     # Bond
+    bond_court_code,
+    bond_court,
+    bond_judge_code,
+    bond_judge_name,
     bond_hearing_request_date,
     bond_completion_date,
     bond_decision,
