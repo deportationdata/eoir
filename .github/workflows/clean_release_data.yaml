@@ -98,10 +98,20 @@ jobs:
             --reviewer graemeblair \
             --base main
 
+      - name: Generate DDO_BOT App token for deportationdata/checks
+        id: dispatch_token
+        if: steps.commit.outputs.new_data == 'true'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.DDO_BOT_APP_ID }}
+          private-key: ${{ secrets.DDO_BOT_PRIVATE_KEY }}
+          owner: deportationdata
+          repositories: checks
+
       - name: Trigger checks
         if: steps.commit.outputs.new_data == 'true'
         env:
-          GH_TOKEN: ${{ secrets.CHECKS_PAT }}
+          GH_TOKEN: ${{ steps.dispatch_token.outputs.token }}
         run: |
           BRANCH=$(git branch --show-current)
           gh api repos/deportationdata/checks/dispatches \
