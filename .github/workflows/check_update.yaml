@@ -17,12 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changed: ${{ steps.check.outputs.changed }}
+      last_modified: ${{ steps.check.outputs.last_modified }}
+      etag: ${{ steps.check.outputs.etag }}
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Check Last-Modified and ETag headers
         id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           HEADERS=$(curl -sI "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip")
 
@@ -42,25 +46,37 @@ jobs:
           echo "Stored Last-Modified: $STORED_LAST_MODIFIED"
           echo "Stored ETag:          $STORED_ETAG"
 
-          if [ "$LAST_MODIFIED" != "$STORED_LAST_MODIFIED" ] || [ "$ETAG" != "$STORED_ETAG" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-            printf '%s\n%s\n' "$LAST_MODIFIED" "$ETAG" > .last_modified
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
+          if [ "$LAST_MODIFIED" = "$STORED_LAST_MODIFIED" ] && [ "$ETAG" = "$STORED_ETAG" ]; then
             echo "No update detected — skipping download."
+            echo "changed=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
-      - name: Commit updated metadata
-        if: steps.check.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .last_modified
-          git commit -m "chore: record new EOIR data release [skip ci]"
-          git push
+          # Skip if a data-update PR is already open awaiting merge,
+          # so we don't open a duplicate PR each cron run while the previous one sits.
+          OPEN=$(gh pr list --state open --base main --json title \
+            --jq '[.[] | select(.title | startswith("Data update"))] | length')
+          if [ "$OPEN" -gt 0 ]; then
+            echo "An open 'Data update' PR already exists — skipping to avoid duplicates."
+            echo "changed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "changed=true" >> $GITHUB_OUTPUT
+          {
+            echo "last_modified<<EOF"
+            echo "$LAST_MODIFIED"
+            echo "EOF"
+            echo "etag<<EOF"
+            echo "$ETAG"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
   process:
     needs: check
     if: needs.check.outputs.changed == 'true'
     uses: ./.github/workflows/clean_release_data.yaml
+    with:
+      last_modified: ${{ needs.check.outputs.last_modified }}
+      etag: ${{ needs.check.outputs.etag }}
     secrets: inherit
