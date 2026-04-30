@@ -50,7 +50,8 @@ jobs:
 
       - name: Process data
         run: |
-          mkdir -p outputs
+          set -x
+          mkdir -p data
           Rscript scripts/geography_join.R
           Rscript scripts/eoir_appeals.R
           Rscript scripts/eoir_associated_bond.R
@@ -74,13 +75,13 @@ jobs:
           git config --local user.name "GitHub Action"
 
           git checkout -b eoir-update-$(date +%Y-%m-%d)
-          git add outputs/cases.parquet .last_modified
+          git add data/cases.parquet data/cases-no-codes.parquet .last_modified
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
             echo "new_data=false" >> $GITHUB_OUTPUT
           else
-            git commit -m "Update cases.parquet and .last_modified [skip ci]"
+            git commit -m "Update cases data and .last_modified [skip ci]"
             git pull --rebase origin main
             git push --set-upstream origin HEAD
             echo "new_data=true" >> $GITHUB_OUTPUT
