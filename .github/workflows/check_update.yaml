@@ -46,7 +46,23 @@ jobs:
           echo "Stored Last-Modified: $STORED_LAST_MODIFIED"
           echo "Stored ETag:          $STORED_ETAG"
 
-          if [ "$LAST_MODIFIED" = "$STORED_LAST_MODIFIED" ] && [ "$ETAG" = "$STORED_ETAG" ]; then
+          # Normalize ETag for comparison per RFC 7232: strip optional `W/`
+          # weakness prefix and the surrounding double quotes around the
+          # opaque-tag. Cloudflare can flip strong (`"x"`) to weak (`W/"x"`)
+          # depending on compression / feature settings, and historical
+          # stored values may have lost the quotes. Comparing on the bare
+          # opaque-tag is robust to both.
+          normalize_etag() {
+            local v="$1"
+            v="${v#W/}"
+            v="${v#\"}"
+            v="${v%\"}"
+            printf '%s' "$v"
+          }
+          ETAG_NORM=$(normalize_etag "$ETAG")
+          STORED_ETAG_NORM=$(normalize_etag "$STORED_ETAG")
+
+          if [ "$LAST_MODIFIED" = "$STORED_LAST_MODIFIED" ] && [ "$ETAG_NORM" = "$STORED_ETAG_NORM" ]; then
             echo "No update detected — skipping download."
             echo "changed=false" >> $GITHUB_OUTPUT
             exit 0
