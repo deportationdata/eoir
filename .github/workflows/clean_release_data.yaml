@@ -69,11 +69,12 @@ jobs:
           LAST_MODIFIED: ${{ inputs.last_modified }}
           ETAG: ${{ inputs.etag }}
         run: |
-          # Pass the values through env vars rather than ${{ }} substitution
-          # so the surrounding quotes around an ETag (e.g. `"abc:0"` from IIS)
-          # survive into the file. With ${{ }}, GitHub does literal text
-          # substitution before bash parses, and `""abc:0""` would collapse
-          # to bare `abc:0`, breaking the next run's comparison.
+          # Pass the values through env vars rather than GitHub Actions
+          # expression interpolation, so the surrounding quotes around an
+          # ETag (e.g. `"abc:0"` from IIS) survive into the file. Inline
+          # expression syntax does literal text substitution before bash
+          # parses, and `""abc:0""` would collapse to bare `abc:0`, breaking
+          # the next run's comparison.
           printf '%s\n%s\n' "$LAST_MODIFIED" "$ETAG" > .last_modified
 
       - name: Commit and push to branch
