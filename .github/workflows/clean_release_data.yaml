@@ -65,8 +65,16 @@ jobs:
 
       - name: Update .last_modified
         if: inputs.last_modified != '' && inputs.etag != ''
+        env:
+          LAST_MODIFIED: ${{ inputs.last_modified }}
+          ETAG: ${{ inputs.etag }}
         run: |
-          printf '%s\n%s\n' "${{ inputs.last_modified }}" "${{ inputs.etag }}" > .last_modified
+          # Pass the values through env vars rather than ${{ }} substitution
+          # so the surrounding quotes around an ETag (e.g. `"abc:0"` from IIS)
+          # survive into the file. With ${{ }}, GitHub does literal text
+          # substitution before bash parses, and `""abc:0""` would collapse
+          # to bare `abc:0`, breaking the next run's comparison.
+          printf '%s\n%s\n' "$LAST_MODIFIED" "$ETAG" > .last_modified
 
       - name: Commit and push to branch
         id: commit
