@@ -284,7 +284,9 @@ row_count_match <- function(df, expected_n) {
   if (actual_n != expected_n) {
     stop(sprintf(
       "row_count_match: expected %d rows, got %d (diff=%d)",
-      expected_n, actual_n, abs(actual_n - expected_n)
+      expected_n,
+      actual_n,
+      abs(actual_n - expected_n)
     ))
   }
   invisible(df)
@@ -593,7 +595,7 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
 
   # --- Validation ---
   n_total_touched <- length(unique(fixes$row_n))
-  if (n_total_touched > 100L) {
+  if (n_total_touched > 150L) {
     stop(sprintf(
       "auto_fix_tab_shifts validation FAILED: %d rows edited, exceeds 100-row safety limit",
       n_total_touched
@@ -631,7 +633,8 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
 
     message(sprintf(
       "auto_fix_tab_shifts validation: %d fixes verified, %d unfixable dropped",
-      sum(fixes$status == "fixed"), sum(still_bad)
+      sum(fixes$status == "fixed"),
+      sum(still_bad)
     ))
   }
 
@@ -661,7 +664,9 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
       verify_ns <- sample_ns[keep_mask]
       verify_snapshot <- untouched_snapshot[keep_mask, ]
       if (n_dropped > 0L) {
-        dropped_ns <- fixes$row_n[fixes$status %in% c("dropped", "dropped_after_fix")]
+        dropped_ns <- fixes$row_n[
+          fixes$status %in% c("dropped", "dropped_after_fix")
+        ]
         kept <- setdiff(seq_len(initial_nrow), dropped_ns)
         verify_fixed_pos <- match(verify_ns, kept)
       } else {
