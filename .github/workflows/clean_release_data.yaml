@@ -21,6 +21,10 @@ on:
         required: false
         type: string
         default: ""
+      download_url:
+        required: false
+        type: string
+        default: "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip"
 
 permissions:
   contents: write
@@ -38,9 +42,11 @@ jobs:
       - uses: r-lib/actions/setup-renv@v2
 
       - name: Download data
+        env:
+          DOWNLOAD_URL: ${{ inputs.download_url || 'https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip' }}
         run: |
           mkdir -p inputs_eoir
-          wget -O eoir_data.zip "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip"
+          wget -O eoir_data.zip "$DOWNLOAD_URL"
 
       - name: Unzip data
         run: |
