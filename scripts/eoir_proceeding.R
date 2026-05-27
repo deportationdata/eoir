@@ -94,6 +94,30 @@ proceeding_tbl |>
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
+    DEPORTED_1,
+    c(lkp_nat$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    DEPORTED_2,
+    c(lkp_nat$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_expr(
+    expr(is.na(DEPORTED_2) | !is.na(DEPORTED_1)),
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_expr(
+    expr(
+      is.na(DEPORTED_1) | is.na(DEPORTED_2) | DEPORTED_1 != DEPORTED_2
+    ),
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  ) |>
+  col_vals_expr(
+    expr(is.na(DEC_CODE) | DEC_CODE != "D" | !is.na(DEPORTED_1)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_in_set(
     LANG,
     c(lkp_lang$str_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)

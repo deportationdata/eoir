@@ -25,11 +25,22 @@ on:
         required: false
         type: string
         default: "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip"
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - 'inputs/**'
+      - 'renv.lock'
+      - '.github/workflows/clean_release_data.yaml'
 
 permissions:
   contents: write
   pull-requests: write
   actions: write
+
+concurrency:
+  group: clean-release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   run-and-release:
@@ -37,6 +48,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
 
       - uses: r-lib/actions/setup-r@v2
 
@@ -71,7 +84,7 @@ jobs:
           Rscript scripts/eoir_case_joins.R
 
       - name: Update .last_modified
-        if: inputs.last_modified != '' && inputs.etag != ''
+        if: github.event_name != 'pull_request' && inputs.last_modified != '' && inputs.etag != ''
         env:
           LAST_MODIFIED: ${{ inputs.last_modified }}
           ETAG: ${{ inputs.etag }}
@@ -84,8 +97,9 @@ jobs:
           # the next run's comparison.
           printf '%s\n%s\n' "$LAST_MODIFIED" "$ETAG" > .last_modified
 
-      - name: Commit and push to branch
-        id: commit
+      - name: Commit and push to branch (release)
+        id: commit_release
+        if: github.event_name != 'pull_request'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
@@ -103,9 +117,35 @@ jobs:
             echo "new_data=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Commit and push to PR branch
+        id: commit_pr
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add data/cases.parquet data/cases-no-codes.parquet
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            echo "new_data=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "Rebuild data from PR-branch code [skip ci]"
+            git push origin "HEAD:$HEAD_REF"
+            echo "new_data=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Aggregate commit outputs
+        id: commit
+        run: |
+          NEW_DATA="${{ steps.commit_release.outputs.new_data || steps.commit_pr.outputs.new_data }}"
+          echo "new_data=$NEW_DATA" >> $GITHUB_OUTPUT
+
       - name: Create pull request
         id: create_pr
-        if: steps.commit.outputs.new_data == 'true'
+        if: github.event_name != 'pull_request' && steps.commit.outputs.new_data == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -119,12 +159,12 @@ jobs:
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
       - name: Dispatch sanity check workflow
-        if: steps.create_pr.outputs.pr_number != ''
+        if: steps.commit.outputs.new_data == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create_pr.outputs.pr_number || github.event.pull_request.number }}
         run: |
-          gh workflow run sanity_check.yaml \
-            -f pr_number="${{ steps.create_pr.outputs.pr_number }}"
+          gh workflow run sanity_check.yaml -f pr_number="$PR_NUMBER"
 
       - name: Generate DDO_BOT App token for deportationdata/checks
         id: dispatch_token
