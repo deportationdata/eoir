@@ -150,26 +150,6 @@ proceeding_tbl |>
   ) |>
   invisible()
 
-# proceeding_tbl <-
-#   proceeding_tbl |>
-#   type_convert(
-#     col_types = cols(
-#       IDNPROCEEDING = col_integer(),
-#       IDNCASE = col_integer(),
-#       OSC_DATE = col_date(),
-#       INPUT_DATE = col_date(),
-#       TRANS_IN_DATE = col_date(),
-#       HEARING_DATE = col_date(),
-#       COMP_DATE = col_date(),
-#       VENUE_CHG_GRANTED = col_date(),
-#       DATE_APPEAL_DUE_STATUS = col_date(),
-#       AGGRAVATE_FELON = col_logical(),
-#       DATE_DETAINED = col_date(),
-#       DATE_RELEASED = col_date()
-#     ),
-#     na = na_vals
-#   )
-
 setDT(proceeding_tbl)
 
 proceeding_tbl[, `:=`(
@@ -260,7 +240,9 @@ cases_from_proceedings <-
       in_absentia = last(in_absentia),
       first_hearing_location_code = first(hearing_loc_code),
       last_hearing_location_code = last(hearing_loc_code),
-      judge_code = last(judge_code)
+      judge_code = last(judge_code),
+      deported_1 = last(deported_1),
+      deported_2 = last(deported_2)
     ),
     by = idncase
   ]

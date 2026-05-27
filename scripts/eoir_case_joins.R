@@ -659,7 +659,11 @@ cases <-
     bia_decision,
     bia_decision_type_code,
     bia_decision_type,
-    bia_decision_date
+    bia_decision_date,
+
+    # Removal
+    deported_1,
+    deported_2
   )
 
 # filter cases for final dataset
