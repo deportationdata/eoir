@@ -5,15 +5,17 @@ suppressPackageStartupMessages({
 new <- arrow::read_parquet("data/cases.parquet")
 old <- arrow::read_parquet("main_ref/data/cases.parquet")
 
-# One grouped skim gives both side-by-side rows for display AND the per-release
-# stats we wide-join below for flag detection.
-combined_skim <- bind_rows(
-  old |> mutate(.release = "old"),
-  new |> mutate(.release = "new")
-) |> group_by(.release) |> skim()
+new_cols <- names(new)
+old_cols <- names(old)
 
-new_skim <- combined_skim |> filter(.release == "new")
-old_skim <- combined_skim |> filter(.release == "old")
+# Skim each side independently and bind the (small) result tables. Materializing
+# the union of both parquet files via bind_rows() previously OOM-killed the
+# runner on large updates.
+old_skim <- old |> skim() |> mutate(.release = "old")
+rm(old); gc()
+new_skim <- new |> skim() |> mutate(.release = "new")
+rm(new); gc()
+combined_skim <- bind_rows(old_skim, new_skim)
 
 joined <- inner_join(
   as.data.frame(new_skim), as.data.frame(old_skim),
@@ -36,13 +38,13 @@ flagged <- joined |>
   filter(nzchar(flag)) |>
   select(skim_variable, flag)
 
-added   <- setdiff(names(new), names(old))
-removed <- setdiff(names(old), names(new))
+added   <- setdiff(new_cols, old_cols)
+removed <- setdiff(old_cols, new_cols)
 
 lines <- c(
   "",
   "### Distribution comparison (skimr)",
-  sprintf("Compared %d columns (new=%d, old=%d).", nrow(joined), ncol(new), ncol(old)),
+  sprintf("Compared %d columns (new=%d, old=%d).", nrow(joined), length(new_cols), length(old_cols)),
   if (length(added))   sprintf("- Added: %s",   paste0("`", added,   "`", collapse = ", ")),
   if (length(removed)) sprintf("- Removed: %s", paste0("`", removed, "`", collapse = ", ")),
   "",

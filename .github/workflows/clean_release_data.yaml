@@ -167,7 +167,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.create_pr.outputs.pr_number || github.event.pull_request.number }}
         run: |
-          gh workflow run sanity_check.yaml -f pr_number="$PR_NUMBER"
+          BRANCH=$(git branch --show-current)
+          gh workflow run sanity_check.yaml --ref "$BRANCH" -f pr_number="$PR_NUMBER"
 
       - name: Generate DDO_BOT App token for deportationdata/checks
         id: dispatch_token
