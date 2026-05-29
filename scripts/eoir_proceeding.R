@@ -265,8 +265,8 @@ cases_from_proceedings <-
       first_hearing_location_code = first(hearing_loc_code),
       last_hearing_location_code = last(hearing_loc_code),
       judge_code = last(judge_code),
-      deported_1 = last(deported_1),
-      deported_2 = last(deported_2)
+      deported_1_code = last(deported_1),
+      deported_2_code = last(deported_2)
     ),
     by = idncase
   ]
