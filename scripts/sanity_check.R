@@ -11,6 +11,9 @@ report_path <- if (length(args) >= 4) args[4] else "sanity_report.md"
 RECENCY_TOLERANCE_DAYS <- 7L
 RECENCY_COL <- "final_completion_date"
 
+DEPORTED_OUTCOME_TOLERANCE_PCT <- 0.5
+EXPECTED_DEPORTED_OUTCOMES <- c("Remove", "Voluntary Departure")
+
 new <- arrow::read_parquet(new_path)
 old <- tryCatch(arrow::read_parquet(old_path), error = function(e) NULL)
 
@@ -74,6 +77,48 @@ if (!is.na(last_mod) && !is.na(event_max)) {
     RECENCY_COL,
     if (is.na(event_max)) "(missing)" else format(event_max)
   ))
+}
+
+deported_cols <- intersect(c("deported_1_code", "deported_2_code"), names(new))
+if (length(deported_cols)) {
+  add("\n### Deported consistency\n")
+
+  has_dep <- Reduce(`|`, lapply(deported_cols, function(c) !is.na(new[[c]])))
+  n_dep <- sum(has_dep)
+
+  if ("case_outcome" %in% names(new)) {
+    outcomes <- new$case_outcome[has_dep]
+    n_unexpected_outcome <- sum(!outcomes %in% EXPECTED_DEPORTED_OUTCOMES)
+    pct_unexpected_outcome <- if (n_dep > 0) 100 * n_unexpected_outcome / n_dep else 0
+    add(sprintf(
+      "- Rows with `%s`: **%s**\n- Of those, `case_outcome` not in {%s}: **%s** (%.4f%%, tolerance %g%%)\n",
+      paste(deported_cols, collapse = "` or `"),
+      fmt_int(n_dep),
+      paste0("`", EXPECTED_DEPORTED_OUTCOMES, "`", collapse = ", "),
+      fmt_int(n_unexpected_outcome), pct_unexpected_outcome, DEPORTED_OUTCOME_TOLERANCE_PCT
+    ))
+    if (pct_unexpected_outcome > DEPORTED_OUTCOME_TOLERANCE_PCT) {
+      warn(sprintf(
+        "%.4f%% of deported rows have an unexpected `case_outcome` (tolerance %g%%).",
+        pct_unexpected_outcome, DEPORTED_OUTCOME_TOLERANCE_PCT
+      ))
+    }
+  }
+
+  if (RECENCY_COL %in% names(new)) {
+    n_missing_completion <- sum(is.na(new[[RECENCY_COL]][has_dep]))
+    pct_missing_completion <- if (n_dep > 0) 100 * n_missing_completion / n_dep else 0
+    add(sprintf(
+      "- Of those, missing `%s`: **%s** (%.4f%%, tolerance %g%%)\n",
+      RECENCY_COL, fmt_int(n_missing_completion), pct_missing_completion, DEPORTED_OUTCOME_TOLERANCE_PCT
+    ))
+    if (pct_missing_completion > DEPORTED_OUTCOME_TOLERANCE_PCT) {
+      warn(sprintf(
+        "%.4f%% of deported rows are missing `%s` (tolerance %g%%).",
+        pct_missing_completion, RECENCY_COL, DEPORTED_OUTCOME_TOLERANCE_PCT
+      ))
+    }
+  }
 }
 
 if (!is.null(old)) {
