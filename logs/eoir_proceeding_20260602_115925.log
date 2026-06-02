@@ -1,0 +1,131 @@
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.1     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.3     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.2     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+The following object is masked from ‘package:base’:
+
+    %notin%
+
+
+Attaching package: ‘pointblank’
+
+The following object is masked from ‘package:data.table’:
+
+    between
+
+collapse 2.1.7, see ?`collapse-package` or ?`collapse-documentation`
+
+Attaching package: ‘collapse’
+
+The following object is masked from ‘package:data.table’:
+
+    fdroplevels
+
+The following object is masked from ‘package:tidylog’:
+
+    replace_na
+
+The following object is masked from ‘package:tidyr’:
+
+    replace_na
+
+The following object is masked from ‘package:stats’:
+
+    D
+
+auto_fix_tab_shifts: 71 overflow-shifted rows detected
+auto_fix_tab_shifts summary: 71 fixed, 0 dropped
+auto_fix_tab_shifts validation: 71 fixes verified, 0 unfixable dropped
+auto_fix_tab_shifts validation: row count OK (16467602 - 0 dropped = 16467602)
+auto_fix_tab_shifts validation: 5000 sampled untouched rows verified unchanged
+mutate: changed one value (<1%) of 'IJ_CODE' (0 new NAs)
+        changed one value (<1%) of 'PREV_HEARING_LOC' (0 new NAs)
+        changed 3 values (<1%) of 'DEC_TYPE' (0 new NAs)
+        changed one value (<1%) of 'DEPORTED_1' (0 new NAs)
+        changed 17 values (<1%) of 'DEPORTED_2' (0 new NAs)
+        changed 6 values (<1%) of 'APPEAL_RSVD' (0 new NAs)
+        changed 8 values (<1%) of 'TRANSFER_TO' (0 new NAs)
+        changed 53 values (<1%) of 'CUSTODY' (0 new NAs)
+select: dropped 2 variables (V1, V2)
+mutate: changed one value (<1%) of 'PREV_HEARING_LOC' (one new NA)
+        changed 3 values (<1%) of 'DEC_TYPE' (3 new NAs)
+        changed one value (<1%) of 'DEPORTED_1' (one new NA)
+        changed 16 values (<1%) of 'DEPORTED_2' (16 new NAs)
+        changed 6 values (<1%) of 'APPEAL_RSVD' (6 new NAs)
+        changed 8 values (<1%) of 'TRANSFER_TO' (8 new NAs)
+        changed 53 values (<1%) of 'CUSTODY' (53 new NAs)
+Warning messages:
+1: Exceedance of failed test units where values in `NAT` should have been in the set of `<A>`, `??`, `AB` (and 254 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00025) >= failure threshold (1e-04) 
+2: Exceedance of failed test units where values in `TRANSFER_TO` should have been in the set of `AGA`, `ATL`, `BAL` (and 95 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.01868) >= failure threshold (1e-04) 
+3: Exceedance of failed test units where values in `IJ_CODE` should have been in the set of `AA`, `AAA`, `AAB` (and 1604 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00188) >= failure threshold (1e-04) 
+4: Exceedance of failed test units where values in `PREV_IJ_CODE` should have been in the set of `AA`, `AAA`, `AAB` (and 1604 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00015) >= failure threshold (1e-04) 
+Warning message:
+In eval(jsub, SDenv, parent.frame()) : NAs introduced by coercion
+rename: renamed 4 variables (nta_date, judge_code, in_absentia, case_type_code)
+mutate: converted 'in_absentia' from character to logical (3756393 fewer NA)
+filter: removed 2 rows (<1%), 16,467,600 rows remaining
+filter: removed 255 rows (<1%), 16,467,345 rows remaining
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1711686   91.5   35730224  1908.2         NA   44662780  2385.3
+Vcells 538718225 4110.1 1865166765 14230.1     131072 3639290364 27765.6
+Warning message:
+Exceedance of failed test units where values in `final_completion_date` should not have been NULL.
+The `col_vals_not_null()` validation failed beyond the proportional threshold level (0.25).
+* failure level (0.26191) >= failure threshold (0.25) 

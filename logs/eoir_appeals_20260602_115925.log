@@ -1,0 +1,81 @@
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.1     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.3     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.2     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, isoyear, mday, minute, month, quarter, second, wday,
+    week, yday, year
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:purrr’:
+
+    transpose
+
+The following object is masked from ‘package:base’:
+
+    %notin%
+
+
+Attaching package: ‘pointblank’
+
+The following object is masked from ‘package:data.table’:
+
+    between
+
+auto_fix_tab_shifts summary: 0 fixed, 0 dropped
+auto_fix_tab_shifts validation: row count OK (1503225 - 0 dropped = 1503225)
+auto_fix_tab_shifts validation: 5000 sampled untouched rows verified unchanged
+mutate: no changes
+select: no changes
+mutate: no changes
+Warning messages:
+1: Exceedance of failed test units where values in `strBIADecision` should have been in the set of `ABC`, `ACR`, `ADM` (and 52 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00023) >= failure threshold (1e-04) 
+2: Exceedance of failed test units where values in `strNat` should have been in the set of `<A>`, `??`, `AB` (and 254 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00044) >= failure threshold (1e-04) 
+3: Exceedance of failed test units where values in `strLang` should have been in the set of `BYE`, `DIO`, `DIU` (and 739 more).
+The `col_vals_in_set()` validation failed beyond the proportional threshold level (1e-04).
+* failure level (0.00027) >= failure threshold (1e-04) 
+rename: renamed 8 variables (appeal_type, appeal_filed_date, appeal_filed_by_code, e27_date, bia_decision_date, …)
