@@ -1,0 +1,182 @@
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.2.1     ✔ readr     2.2.0
+✔ forcats   1.0.1     ✔ stringr   1.6.0
+✔ ggplot2   4.0.3     ✔ tibble    3.3.1
+✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+✔ purrr     1.2.2     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+
+Attaching package: ‘tidylog’
+
+The following objects are masked from ‘package:dplyr’:
+
+    add_count, add_tally, anti_join, count, distinct, distinct_all,
+    distinct_at, distinct_if, filter, filter_all, filter_at, filter_if,
+    full_join, group_by, group_by_all, group_by_at, group_by_if,
+    inner_join, left_join, mutate, mutate_all, mutate_at, mutate_if,
+    relocate, rename, rename_all, rename_at, rename_if, rename_with,
+    right_join, sample_frac, sample_n, select, select_all, select_at,
+    select_if, semi_join, slice, slice_head, slice_max, slice_min,
+    slice_sample, slice_tail, summarise, summarise_all, summarise_at,
+    summarise_if, summarize, summarize_all, summarize_at, summarize_if,
+    tally, top_frac, top_n, transmute, transmute_all, transmute_at,
+    transmute_if, ungroup
+
+The following objects are masked from ‘package:tidyr’:
+
+    drop_na, fill, gather, pivot_longer, pivot_wider, replace_na,
+    separate_wider_delim, separate_wider_position,
+    separate_wider_regex, spread, uncount
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+Rows: 33803 Columns: 7
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+chr (7): zcta, state, stab, ZIPName, pop20, afact2, afact
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+slice: removed one row (<1%), 33,802 rows remaining
+
+── Column specification ────────────────────────────────────────────────────────
+cols(
+  zcta = col_character(),
+  state = col_character(),
+  stab = col_character(),
+  ZIPName = col_character(),
+  pop20 = col_double(),
+  afact2 = col_double(),
+  afact = col_double()
+)
+
+distinct: removed 33,750 rows (>99%), 52 rows remaining
+transmute: dropped one variable (stab)
+transmute: dropped one variable (stab)
+           new variable 'state_fips_code' (character) with 52 unique values and 0% NA
+           changed 52 values (100%) of 'state' (0 new NAs)
+Rows: 46964 Columns: 7
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+chr (7): zcta, county, CountyName, ZIPName, pop20, afact2, afact
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+slice: removed one row (<1%), 46,963 rows remaining
+
+── Column specification ────────────────────────────────────────────────────────
+cols(
+  zcta = col_character(),
+  county = col_character(),
+  CountyName = col_character(),
+  ZIPName = col_character(),
+  pop20 = col_double(),
+  afact2 = col_double(),
+  afact = col_double()
+)
+
+filter: removed 334 rows (1%), 46,629 rows remaining
+group_by: one grouping variable (zcta)
+slice_max (grouped): removed 12,998 rows (28%), 33,631 rows remaining (removed 0 groups, 33,631 groups remaining)
+ungroup: no grouping variables remain
+mutate: new variable 'county_fips_code' (character) with 3,215 unique values and 0% NA
+        new variable 'state_fips_code' (character) with 52 unique values and 0% NA
+left_join: added one column (state)
+           > rows only in mutate(ungroup(slice_ma..       0
+           > rows only in state_lookup              (     0)
+           > matched rows                            33,631
+           >                                        ========
+           > rows total                              33,631
+transmute: dropped 5 variables (CountyName, ZIPName, pop20, afact2, afact)
+transmute: dropped 5 variables (CountyName, ZIPName, pop20, afact2, afact)
+           changed 33,631 values (100%) of 'county' (0 new NAs)
+Rows: 76486 Columns: 9
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+chr (9): zcta, state, place, stab, PlaceName, ZIPName, pop20, afact2, afact
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+slice: removed one row (<1%), 76,485 rows remaining
+
+── Column specification ────────────────────────────────────────────────────────
+cols(
+  zcta = col_character(),
+  state = col_character(),
+  place = col_character(),
+  stab = col_character(),
+  PlaceName = col_character(),
+  ZIPName = col_character(),
+  pop20 = col_double(),
+  afact2 = col_double(),
+  afact = col_double()
+)
+
+filter: removed 75 rows (<1%), 76,410 rows remaining
+group_by: one grouping variable (zcta)
+slice_max (grouped): removed 42,779 rows (56%), 33,631 rows remaining (removed 0 groups, 33,631 groups remaining)
+ungroup: no grouping variables remain
+rename: renamed one variable (place_fips_code)
+transmute: dropped 7 variables (state, stab, PlaceName, ZIPName, pop20, …)
+transmute: dropped 7 variables (state, stab, PlaceName, ZIPName, pop20, …)
+           new variable 'place' (character) with 11,165 unique values and 48% NA
+           changed 16,267 values (48%) of 'place_fips_code' (16,267 new NAs)
+Rows: 47863 Columns: 18
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: "|"
+chr (10): GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, MTFCC_ZCTA5_20, CLASSFP_ZCTA5_2...
+dbl  (8): OID_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, OID_COUNTY_20...
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+filter: removed 47,843 rows (>99%), 20 rows remaining
+group_by: one grouping variable (GEOID_ZCTA5_20)
+slice_max (grouped): removed 3 rows (15%), 17 rows remaining (removed 0 groups, 17 groups remaining)
+ungroup: no grouping variables remain
+transmute: dropped 18 variables (OID_ZCTA5_20, GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, …)
+transmute: dropped 18 variables (OID_ZCTA5_20, GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, …)
+           new variable 'zcta' (character) with 17 unique values and 0% NA
+           new variable 'state_fips_code' (character) with 4 unique values and 0% NA
+           new variable 'county' (character) with 8 unique values and 0% NA
+           new variable 'county_fips_code' (character) with 8 unique values and 0% NA
+left_join: added one column (state)
+           > rows only in transmute(ungroup(slice..   0
+           > rows only in territory_state_lookup    ( 0)
+           > matched rows                            17
+           >                                        ====
+           > rows total                              17
+Rows: 82880 Columns: 18
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: "|"
+chr (10): GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, MTFCC_ZCTA5_20, CLASSFP_ZCTA5_2...
+dbl  (8): OID_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, OID_PLACE_20,...
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+filter: removed 82,610 rows (>99%), 270 rows remaining
+group_by: one grouping variable (GEOID_ZCTA5_20)
+slice_max (grouped): removed 255 rows (94%), 15 rows remaining (removed 0 groups, 15 groups remaining)
+ungroup: no grouping variables remain
+transmute: dropped 18 variables (OID_ZCTA5_20, GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, …)
+transmute: dropped 18 variables (OID_ZCTA5_20, GEOID_ZCTA5_20, NAMELSAD_ZCTA5_20, AREALAND_ZCTA5_20, AREAWATER_ZCTA5_20, …)
+           new variable 'zcta' (character) with 15 unique values and 0% NA
+           new variable 'place' (character) with 15 unique values and 0% NA
+           new variable 'place_fips_code' (character) with 15 unique values and 0% NA
+left_join: added 2 columns (place, place_fips_code)
+           > rows only in territory_county   2
+           > rows only in territory_place  ( 0)
+           > matched rows                   15
+           >                               ====
+           > rows total                     17
+select: columns reordered (zcta, state, state_fips_code, county, county_fips_code, …)
+left_join: added 2 columns (place, place_fips_code)
+           > rows only in zcta_county       0
+           > rows only in zcta_place  (     0)
+           > matched rows              33,631
+           >                          ========
+           > rows total                33,631
