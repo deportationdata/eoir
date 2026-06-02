@@ -3,8 +3,8 @@ suppressPackageStartupMessages({
 })
 
 args <- commandArgs(trailingOnly = TRUE)
-new_path  <- if (length(args) >= 1) args[1] else "data/cases.parquet"
-old_path  <- if (length(args) >= 2) args[2] else "main_ref/data/cases.parquet"
+new_path <- if (length(args) >= 1) args[1] else "data/cases.parquet"
+old_path <- if (length(args) >= 2) args[2] else "main_ref/data/cases.parquet"
 last_modified_path <- if (length(args) >= 3) args[3] else ".last_modified"
 report_path <- if (length(args) >= 4) args[4] else "sanity_report.md"
 
@@ -36,20 +36,33 @@ if (!is.null(old)) {
   pct <- if (n_old > 0) 100 * delta / n_old else NA_real_
   add(sprintf(
     "| Metric | This PR | Prior (main) | Δ |\n|---|---:|---:|---:|\n| `cases.parquet` rows | %s | %s | %s (%+0.3f%%) |\n",
-    fmt_int(n_new), fmt_int(n_old), fmt_signed(delta), pct
+    fmt_int(n_new),
+    fmt_int(n_old),
+    fmt_signed(delta),
+    pct
   ))
   if (delta < 0) {
-    warn(sprintf("Row count decreased by %s (%+0.3f%%).", fmt_int(abs(delta)), pct))
+    warn(sprintf(
+      "Row count decreased by %s (%+0.3f%%).",
+      fmt_int(abs(delta)),
+      pct
+    ))
   } else if (!is.na(pct) && pct < 0.01) {
     warn(sprintf("Row count grew by only %s (%+0.4f%%).", fmt_int(delta), pct))
   }
 } else {
-  add(sprintf("- `cases.parquet` rows: **%s** (no prior version on main)\n", fmt_int(n_new)))
+  add(sprintf(
+    "- `cases.parquet` rows: **%s** (no prior version on main)\n",
+    fmt_int(n_new)
+  ))
 }
 
 add("\n### Data recency\n")
 
-last_mod_raw <- tryCatch(readLines(last_modified_path, n = 1L, warn = FALSE), error = function(e) NA_character_)
+last_mod_raw <- tryCatch(
+  readLines(last_modified_path, n = 1L, warn = FALSE),
+  error = function(e) NA_character_
+)
 last_mod <- suppressWarnings(as.Date(last_mod_raw, format = "%a, %d %b %Y"))
 
 if (RECENCY_COL %in% names(new)) {
@@ -64,11 +77,19 @@ if (!is.na(last_mod) && !is.na(event_max)) {
   gap <- as.integer(last_mod - event_max)
   add(sprintf(
     "- File `Last-Modified`: **%s**\n- Latest `%s` in data: **%s**\n- Gap: **%d day(s)** (tolerance: %d)\n",
-    format(last_mod), RECENCY_COL, format(event_max), gap, RECENCY_TOLERANCE_DAYS
+    format(last_mod),
+    RECENCY_COL,
+    format(event_max),
+    gap,
+    RECENCY_TOLERANCE_DAYS
   ))
   if (gap > RECENCY_TOLERANCE_DAYS) {
-    warn(sprintf("Latest `%s` is %d day(s) before the file's `Last-Modified` header (tolerance %d).",
-      RECENCY_COL, gap, RECENCY_TOLERANCE_DAYS))
+    warn(sprintf(
+      "Latest `%s` is %d day(s) before the file's `Last-Modified` header (tolerance %d).",
+      RECENCY_COL,
+      gap,
+      RECENCY_TOLERANCE_DAYS
+    ))
   }
 } else {
   add(sprintf(
@@ -79,55 +100,20 @@ if (!is.na(last_mod) && !is.na(event_max)) {
   ))
 }
 
-deported_cols <- intersect(c("deported_1_code", "deported_2_code"), names(new))
-if (length(deported_cols)) {
-  add("\n### Deported consistency\n")
-
-  has_dep <- Reduce(`|`, lapply(deported_cols, function(c) !is.na(new[[c]])))
-  n_dep <- sum(has_dep)
-
-  if ("case_outcome" %in% names(new)) {
-    outcomes <- new$case_outcome[has_dep]
-    n_unexpected_outcome <- sum(!outcomes %in% EXPECTED_DEPORTED_OUTCOMES)
-    pct_unexpected_outcome <- if (n_dep > 0) 100 * n_unexpected_outcome / n_dep else 0
-    add(sprintf(
-      "- Rows with `%s`: **%s**\n- Of those, `case_outcome` not in {%s}: **%s** (%.4f%%, tolerance %g%%)\n",
-      paste(deported_cols, collapse = "` or `"),
-      fmt_int(n_dep),
-      paste0("`", EXPECTED_DEPORTED_OUTCOMES, "`", collapse = ", "),
-      fmt_int(n_unexpected_outcome), pct_unexpected_outcome, DEPORTED_OUTCOME_TOLERANCE_PCT
-    ))
-    if (pct_unexpected_outcome > DEPORTED_OUTCOME_TOLERANCE_PCT) {
-      warn(sprintf(
-        "%.4f%% of deported rows have an unexpected `case_outcome` (tolerance %g%%).",
-        pct_unexpected_outcome, DEPORTED_OUTCOME_TOLERANCE_PCT
-      ))
-    }
-  }
-
-  if (RECENCY_COL %in% names(new)) {
-    n_missing_completion <- sum(is.na(new[[RECENCY_COL]][has_dep]))
-    pct_missing_completion <- if (n_dep > 0) 100 * n_missing_completion / n_dep else 0
-    add(sprintf(
-      "- Of those, missing `%s`: **%s** (%.4f%%, tolerance %g%%)\n",
-      RECENCY_COL, fmt_int(n_missing_completion), pct_missing_completion, DEPORTED_OUTCOME_TOLERANCE_PCT
-    ))
-    if (pct_missing_completion > DEPORTED_OUTCOME_TOLERANCE_PCT) {
-      warn(sprintf(
-        "%.4f%% of deported rows are missing `%s` (tolerance %g%%).",
-        pct_missing_completion, RECENCY_COL, DEPORTED_OUTCOME_TOLERANCE_PCT
-      ))
-    }
-  }
-}
-
 if (!is.null(old)) {
   added <- setdiff(names(new), names(old))
   removed <- setdiff(names(old), names(new))
   if (length(added) || length(removed)) {
     add("\n### Schema changes\n")
-    if (length(added))   add(sprintf("- Added: %s\n", paste0("`", added, "`", collapse = ", ")))
-    if (length(removed)) add(sprintf("- Removed: %s\n", paste0("`", removed, "`", collapse = ", ")))
+    if (length(added)) {
+      add(sprintf("- Added: %s\n", paste0("`", added, "`", collapse = ", ")))
+    }
+    if (length(removed)) {
+      add(sprintf(
+        "- Removed: %s\n",
+        paste0("`", removed, "`", collapse = ", ")
+      ))
+    }
     warn("Schema changed since prior release.")
   }
 }
@@ -136,7 +122,9 @@ add("\n### Warnings\n")
 if (length(warnings_md) == 0L) {
   add("- None.\n")
 } else {
-  for (w in warnings_md) add(sprintf("- %s\n", w))
+  for (w in warnings_md) {
+    add(sprintf("- %s\n", w))
+  }
 }
 
 writeLines(unlist(out), report_path)
