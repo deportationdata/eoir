@@ -94,6 +94,30 @@ proceeding_tbl |>
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
+    DEPORTED_1,
+    c(lkp_nat$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_in_set(
+    DEPORTED_2,
+    c(lkp_nat$str_code, NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_expr(
+    expr(is.na(DEPORTED_2) | !is.na(DEPORTED_1)),
+    actions = action_levels(warn_at = 0.005, stop_at = 0.01)
+  ) |>
+  col_vals_expr(
+    expr(
+      is.na(DEPORTED_1) | is.na(DEPORTED_2) | DEPORTED_1 != DEPORTED_2
+    ),
+    actions = action_levels(warn_at = 0.001, stop_at = 0.01)
+  ) |>
+  col_vals_expr(
+    expr(is.na(DEC_CODE) | DEC_CODE != "D" | !is.na(DEPORTED_1)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_in_set(
     LANG,
     c(lkp_lang$str_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
@@ -149,26 +173,6 @@ proceeding_tbl |>
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   invisible()
-
-# proceeding_tbl <-
-#   proceeding_tbl |>
-#   type_convert(
-#     col_types = cols(
-#       IDNPROCEEDING = col_integer(),
-#       IDNCASE = col_integer(),
-#       OSC_DATE = col_date(),
-#       INPUT_DATE = col_date(),
-#       TRANS_IN_DATE = col_date(),
-#       HEARING_DATE = col_date(),
-#       COMP_DATE = col_date(),
-#       VENUE_CHG_GRANTED = col_date(),
-#       DATE_APPEAL_DUE_STATUS = col_date(),
-#       AGGRAVATE_FELON = col_logical(),
-#       DATE_DETAINED = col_date(),
-#       DATE_RELEASED = col_date()
-#     ),
-#     na = na_vals
-#   )
 
 setDT(proceeding_tbl)
 
@@ -260,7 +264,9 @@ cases_from_proceedings <-
       in_absentia = last(in_absentia),
       first_hearing_location_code = first(hearing_loc_code),
       last_hearing_location_code = last(hearing_loc_code),
-      judge_code = last(judge_code)
+      judge_code = last(judge_code),
+      deported_1_code = last(deported_1),
+      deported_2_code = last(deported_2)
     ),
     by = idncase
   ]

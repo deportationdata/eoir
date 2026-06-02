@@ -287,6 +287,23 @@ cases <- cases |>
     relationship = "many-to-one"
   )
 
+# Deported-to country (same lookup as nationality)
+cases <- cases |>
+  left_join(
+    tblLookupAlienNat |>
+      filter(!is.na(str_code)) |>
+      select(str_code, deported_1 = str_description),
+    by = c("deported_1_code" = "str_code"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    tblLookupAlienNat |>
+      filter(!is.na(str_code)) |>
+      select(str_code, deported_2 = str_description),
+    by = c("deported_2_code" = "str_code"),
+    relationship = "many-to-one"
+  )
+
 # Appeal type
 cases <- cases |>
   rename(appeal_type_code = appeal_type) |>
@@ -458,6 +475,16 @@ cases |>
   col_vals_not_null(
     nationality,
     preconditions = \(x) dplyr::filter(x, !is.na(nationality_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    deported_1,
+    preconditions = \(x) dplyr::filter(x, !is.na(deported_1_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    deported_2,
+    preconditions = \(x) dplyr::filter(x, !is.na(deported_2_code)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
@@ -659,7 +686,13 @@ cases <-
     bia_decision,
     bia_decision_type_code,
     bia_decision_type,
-    bia_decision_date
+    bia_decision_date,
+
+    # Removal
+    deported_1_code,
+    deported_1,
+    deported_2_code,
+    deported_2
   )
 
 # filter cases for final dataset
