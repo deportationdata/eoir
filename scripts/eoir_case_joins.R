@@ -150,6 +150,17 @@ cases <-
 rm(court_applications_by_case)
 gc()
 
+motions_by_case <-
+  arrow::read_parquet("tmp/motions_cases.parquet")
+
+cases <-
+  cases |>
+  left_join(motions_by_case, by = "idncase") |>
+  mutate(motion_to_pretermit = replace_na(motion_to_pretermit, FALSE))
+
+rm(motions_by_case)
+gc()
+
 associated_bond_by_case <-
   arrow::read_parquet("tmp/associated_bond_cases.parquet")
 
@@ -642,6 +653,9 @@ cases <-
     non_lpr_cancellation_application,
     lpr_cancellation_application,
     any_relief_application,
+
+    # Motions
+    motion_to_pretermit,
 
     # IJ outcome
     case_outcome,
