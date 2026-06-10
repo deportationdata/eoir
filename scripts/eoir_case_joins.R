@@ -356,9 +356,16 @@ cases <- cases |>
 cases <- cases |>
   left_join(
     tblLookupJudge |>
-      filter(!is.na(judge_code)) |>
-      select(judge_code, judge_name),
-    by = "judge_code",
+      filter(!is.na(first_judge_code)) |>
+      select(first_judge_code, first_judge_name = judge_name),
+    by = "first_judge_code",
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    tblLookupJudge |>
+      filter(!is.na(last_judge_code)) |>
+      select(last_judge_code, last_judge_name = judge_name),
+    by = "last_judge_code",
     relationship = "many-to-one"
   ) |>
   left_join(
@@ -628,11 +635,18 @@ cases <-
     final_court,
     first_hearing_location_code,
     last_hearing_location_code,
-    judge_code,
-    judge_name,
+    first_judge_code,
+    first_judge_name,
+    last_judge_code,
+    last_judge_name,
 
     # IJ proceedings
+    deported_1_code,
+    deported_1,
+    deported_2_code,
+    deported_2,
     e28_date,
+    represented,
     in_absentia,
     ij_final_date,
     final_completion_date,
@@ -686,13 +700,7 @@ cases <-
     bia_decision,
     bia_decision_type_code,
     bia_decision_type,
-    bia_decision_date,
-
-    # Removal
-    deported_1_code,
-    deported_1,
-    deported_2_code,
-    deported_2
+    bia_decision_date
   )
 
 # filter cases for final dataset
