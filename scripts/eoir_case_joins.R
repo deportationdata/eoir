@@ -356,15 +356,15 @@ cases <- cases |>
 cases <- cases |>
   left_join(
     tblLookupJudge |>
-      filter(!is.na(first_judge_code)) |>
-      select(first_judge_code, first_judge_name = judge_name),
+      filter(!is.na(judge_code)) |>
+      select(first_judge_code = judge_code, first_judge_name = judge_name),
     by = "first_judge_code",
     relationship = "many-to-one"
   ) |>
   left_join(
     tblLookupJudge |>
-      filter(!is.na(last_judge_code)) |>
-      select(last_judge_code, last_judge_name = judge_name),
+      filter(!is.na(judge_code)) |>
+      select(last_judge_code = judge_code, last_judge_name = judge_name),
     by = "last_judge_code",
     relationship = "many-to-one"
   ) |>

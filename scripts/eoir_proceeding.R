@@ -301,7 +301,11 @@ cases_from_proceedings |>
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
-    judge_code,
+    first_judge_code,
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    last_judge_code,
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   invisible()
