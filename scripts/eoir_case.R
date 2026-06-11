@@ -224,7 +224,7 @@ cases_tbl <-
   ) |>
   mutate(
     birth_year = as.integer(str_extract(c_birthdate, "\\d{4}")),
-    represented = !is.na(e_28_date)
+    represented = !is.na(e28_date)
   ) |>
   select(-c_birthdate)
 
