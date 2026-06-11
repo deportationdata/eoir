@@ -510,8 +510,13 @@ cases |>
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
-    judge_name,
-    preconditions = \(x) dplyr::filter(x, !is.na(judge_code)),
+    last_judge_name,
+    preconditions = \(x) dplyr::filter(x, !is.na(last_judge_code)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    first_judge_name,
+    preconditions = \(x) dplyr::filter(x, !is.na(first_judge_code)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
