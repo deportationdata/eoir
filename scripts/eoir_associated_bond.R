@@ -182,6 +182,15 @@ associated_bond_by_case <-
       initial_bond_amount_first = first(initial_bond_amount),
       new_bond_amount_first = first(new_bond_amount),
 
+      bond_completion_date_second = bond_completion_date[2],
+      bond_court_code_second = base_city_code[2],
+      bond_judge_code_second = ij_code[2],
+      hearing_location_code_second = hearing_location_code[2],
+      bond_hearing_request_date_second = bond_hearing_request_date[2],
+      bond_decision_second = bond_decision[2],
+      initial_bond_amount_second = initial_bond_amount[2],
+      new_bond_amount_second = new_bond_amount[2],
+
       bond_completion_date_last = last(bond_completion_date),
       bond_court_code_last = last(base_city_code),
       bond_judge_code_last = last(ij_code),
@@ -194,41 +203,26 @@ associated_bond_by_case <-
     by = idncase
   ] |>
   mutate(
-    bond_decision_first = recode(
-      bond_decision_first,
-      G = "AMELIORATION GRANTED",
-      W = "BOND REQUEST WITHDRAWN",
-      D = "AMELIORATION DENIED-NO JURISDICTION",
-      I = "BOND AMOUNT INCREASED",
-      E = "AMELIORATION DENIED",
-      O = "OTHER",
-      F = "FLORES - RELEASE",
-      L = "FLORES - NO RELEASE",
-      A = "BOND DENIED-MOOT",
-      C = "BOND GRANTED-AMOUNT DECREASED",
-      J = "BOND DENIED-NO JURISDICTION",
-      N = "BOND DENIED- NO CHANGE (NO BOND SET BY DHS)",
-      S = "BOND DENIED- NO CHANGE (DHS BOND AMOUNT UNCHANGED)",
-      R = "BOND GRANTED-OWN RECOGNIZANCE",
-      .default = bond_decision_first
-    ),
-    bond_decision_last = recode(
-      bond_decision_last,
-      G = "AMELIORATION GRANTED",
-      W = "BOND REQUEST WITHDRAWN",
-      D = "AMELIORATION DENIED-NO JURISDICTION",
-      I = "BOND AMOUNT INCREASED",
-      E = "AMELIORATION DENIED",
-      O = "OTHER",
-      F = "FLORES - RELEASE",
-      L = "FLORES - NO RELEASE",
-      A = "BOND DENIED-MOOT",
-      C = "BOND GRANTED-AMOUNT DECREASED",
-      J = "BOND DENIED-NO JURISDICTION",
-      N = "BOND DENIED- NO CHANGE (NO BOND SET BY DHS)",
-      S = "BOND DENIED- NO CHANGE (DHS BOND AMOUNT UNCHANGED)",
-      R = "BOND GRANTED-OWN RECOGNIZANCE",
-      .default = bond_decision_last
+    across(
+      c(bond_decision_first, bond_decision_second, bond_decision_last),
+      ~ recode(
+        .x,
+        G = "AMELIORATION GRANTED",
+        W = "BOND REQUEST WITHDRAWN",
+        D = "AMELIORATION DENIED-NO JURISDICTION",
+        I = "BOND AMOUNT INCREASED",
+        E = "AMELIORATION DENIED",
+        O = "OTHER",
+        F = "FLORES - RELEASE",
+        L = "FLORES - NO RELEASE",
+        A = "BOND DENIED-MOOT",
+        C = "BOND GRANTED-AMOUNT DECREASED",
+        J = "BOND DENIED-NO JURISDICTION",
+        N = "BOND DENIED- NO CHANGE (NO BOND SET BY DHS)",
+        S = "BOND DENIED- NO CHANGE (DHS BOND AMOUNT UNCHANGED)",
+        R = "BOND GRANTED-OWN RECOGNIZANCE",
+        .default = .x
+      )
     )
   )
 
@@ -237,6 +231,11 @@ associated_bond_by_case |>
   # Verify recode resolved all single-letter codes
   col_vals_not_in_set(
     bond_decision_first,
+    c("G", "W", "D", "I", "E", "O", "F", "L", "A", "C", "J", "N", "S", "R"),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_not_in_set(
+    bond_decision_second,
     c("G", "W", "D", "I", "E", "O", "F", "L", "A", "C", "J", "N", "S", "R"),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>

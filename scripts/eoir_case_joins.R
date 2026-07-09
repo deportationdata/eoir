@@ -157,6 +157,7 @@ cases <-
   left_join(associated_bond_by_case, by = "idncase") |>
   rename(
     bond_hearing_location_code_first = hearing_location_code_first,
+    bond_hearing_location_code_second = hearing_location_code_second,
     bond_hearing_location_code_last = hearing_location_code_last
   ) |>
   # now that the bond columns are prefixed, move the case-level hearing
@@ -179,6 +180,18 @@ cases <-
           ),
       NA_real_,
       new_bond_amount_first
+    ),
+    new_bond_amount_second = if_else(
+      new_bond_amount_second == 0 &
+        !bond_decision_second %in%
+          c(
+            "AMELIORATION GRANTED",
+            "BOND GRANTED-AMOUNT DECREASED",
+            "BOND GRANTED-OWN RECOGNIZANCE",
+            "FLORES - RELEASE"
+          ),
+      NA_real_,
+      new_bond_amount_second
     ),
     new_bond_amount_last = if_else(
       new_bond_amount_last == 0 &
@@ -372,6 +385,11 @@ cases <- cases |>
     relationship = "many-to-one"
   ) |>
   left_join(
+    base_city_desc |> rename(bond_court_second = court_desc),
+    by = c("bond_court_code_second" = "base_city_code"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
     base_city_desc |> rename(bond_court_last = court_desc),
     by = c("bond_court_code_last" = "base_city_code"),
     relationship = "many-to-one"
@@ -398,6 +416,13 @@ cases <- cases |>
       filter(!is.na(judge_code)) |>
       select(judge_code, bond_judge_name_first = judge_name),
     by = c("bond_judge_code_first" = "judge_code"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    tblLookupJudge |>
+      filter(!is.na(judge_code)) |>
+      select(judge_code, bond_judge_name_second = judge_name),
+    by = c("bond_judge_code_second" = "judge_code"),
     relationship = "many-to-one"
   ) |>
   left_join(
@@ -431,6 +456,11 @@ cases <- cases |>
   left_join(
     hloc_desc |> rename(bond_hearing_location_first = hloc_name),
     by = c("bond_hearing_location_code_first" = "hearing_loc_code"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    hloc_desc |> rename(bond_hearing_location_second = hloc_name),
+    by = c("bond_hearing_location_code_second" = "hearing_loc_code"),
     relationship = "many-to-one"
   ) |>
   left_join(
@@ -507,13 +537,17 @@ cases |>
   ) |>
   # Bond amounts should be non-negative when present
   col_vals_gte(
-    c(initial_bond_amount_first, initial_bond_amount_last),
+    c(
+      initial_bond_amount_first,
+      initial_bond_amount_second,
+      initial_bond_amount_last
+    ),
     0,
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_gte(
-    c(new_bond_amount_first, new_bond_amount_last),
+    c(new_bond_amount_first, new_bond_amount_second, new_bond_amount_last),
     0,
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
@@ -527,6 +561,23 @@ cases |>
       dplyr::filter(
         x,
         !bond_decision_first %in%
+          c(
+            "AMELIORATION GRANTED",
+            "BOND GRANTED-AMOUNT DECREASED",
+            "BOND GRANTED-OWN RECOGNIZANCE"
+          )
+      )
+    },
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_gt(
+    new_bond_amount_second,
+    0,
+    na_pass = TRUE,
+    preconditions = \(x) {
+      dplyr::filter(
+        x,
+        !bond_decision_second %in%
           c(
             "AMELIORATION GRANTED",
             "BOND GRANTED-AMOUNT DECREASED",
@@ -674,44 +725,66 @@ cases <-
         )
     ),
     across(
-      c(first_court, final_court, bond_court_first, bond_court_last),
+      c(
+        first_court,
+        final_court,
+        bond_court_first,
+        bond_court_second,
+        bond_court_last
+      ),
       # replace to title case but keep court codes in parentheses uppercase
       ~ str_replace(.x, "^([^(]+)", \(m) str_to_title(m))
     )
   ) |>
-  # Case length variables, in days
   mutate(
-    nta_date_to_ij_completion_date_days = as.numeric(
-      difftime(final_completion_date, nta_date, units = "days")
-    ),
-    nta_date_to_ij_or_bia_completion_date_days = as.numeric(
-      difftime(ij_or_bia_completion_date_last, nta_date, units = "days")
-    ),
-    nta_date_to_first_bond_completion_date_days = as.numeric(
-      difftime(bond_completion_date_first, nta_date, units = "days")
-    ),
-    nta_date_to_last_bond_completion_date_days = as.numeric(
-      difftime(bond_completion_date_last, nta_date, units = "days")
-    ),
-    appeal_filed_date_to_decision_date_days = as.numeric(
-      difftime(bia_decision_date, appeal_filed_date, units = "days")
-    ),
-    bond_hearing_request_date_to_completion_date_days_first = as.numeric(
-      difftime(
-        bond_completion_date_first,
-        bond_hearing_request_date_first,
-        units = "days"
-      )
-    ),
-    bond_hearing_request_date_to_completion_date_days_last = as.numeric(
-      difftime(
-        bond_completion_date_last,
-        bond_hearing_request_date_last,
-        units = "days"
-      )
+    case_outcome_category = recode_values(
+      case_outcome,
+      c(
+        "Administrative Closing - Other",
+        "Administrative Closure",
+        "Relief Granted",
+        "Temporary Protected Status",
+        "Terminated",
+        "Grant",
+        "Grant-CAT Deferral"
+      ) ~
+        "Positive",
+      c(
+        "Remove",
+        "Voluntary Departure",
+        "Abandonment",
+        "Deny"
+      ) ~
+        "Negative",
+      c(
+        "Change Of Venue",
+        "Haitian",
+        "Jurisdiction Transferred To The BIA",
+        "Other",
+        "Other Administrative Completion",
+        "Prosecutorial Discretion - Admin Close",
+        "Remove-CAT Deferral Granted",
+        "Remove-CAT Withholding Granted",
+        "Remove-INA Withholding Granted",
+        "Transfer",
+        # Withdraw is the WHO-case spelling of Withdrawn
+        "Withdraw",
+        "Withdrawn",
+        "Zero Bond"
+      ) ~
+        "Ambiguous",
+      c(
+        "Dismissed By IJ",
+        "Failure To Prosecute (DHS Cases Only)",
+        "In Court Prosecutorial Discretion - Admin Closure"
+      ) ~
+        if_else(
+          final_completion_date < as.Date("2025-01-20"),
+          "Positive",
+          "Ambiguous"
+        )
     )
   ) |>
-  # Standardize remaining names to the first/last suffix style used below
   rename(
     court_code_first = first_court_code,
     court_first = first_court,
@@ -722,8 +795,51 @@ cases <-
     judge_code_last = last_judge_code,
     judge_last = last_judge_name,
     bond_judge_first = bond_judge_name_first,
+    bond_judge_second = bond_judge_name_second,
     bond_judge_last = bond_judge_name_last,
     ij_completion_date_last = final_completion_date
+  ) |>
+  # Case length variables, in days
+  mutate(
+    nta_date_to_ij_completion_date_last_days = as.numeric(
+      difftime(ij_completion_date_last, nta_date, units = "days")
+    ),
+    nta_date_to_ij_or_bia_completion_date_last_days = as.numeric(
+      difftime(ij_or_bia_completion_date_last, nta_date, units = "days")
+    ),
+    nta_date_to_bond_completion_date_first_days = as.numeric(
+      difftime(bond_completion_date_first, nta_date, units = "days")
+    ),
+    nta_date_to_bond_completion_date_second_days = as.numeric(
+      difftime(bond_completion_date_second, nta_date, units = "days")
+    ),
+    nta_date_to_bond_completion_date_last_days = as.numeric(
+      difftime(bond_completion_date_last, nta_date, units = "days")
+    ),
+    appeal_filed_date_to_bia_decision_date_days = as.numeric(
+      difftime(bia_decision_date, appeal_filed_date, units = "days")
+    ),
+    bond_hearing_request_date_first_to_bond_completion_date_first_days = as.numeric(
+      difftime(
+        bond_completion_date_first,
+        bond_hearing_request_date_first,
+        units = "days"
+      )
+    ),
+    bond_hearing_request_date_second_to_bond_completion_date_second_days = as.numeric(
+      difftime(
+        bond_completion_date_second,
+        bond_hearing_request_date_second,
+        units = "days"
+      )
+    ),
+    bond_hearing_request_date_last_to_bond_completion_date_last_days = as.numeric(
+      difftime(
+        bond_completion_date_last,
+        bond_hearing_request_date_last,
+        units = "days"
+      )
+    )
   ) |>
   relocate(
     # Case identifiers
@@ -810,6 +926,18 @@ cases <-
     initial_bond_amount_first,
     new_bond_amount_first,
 
+    bond_court_code_second,
+    bond_court_second,
+    bond_hearing_location_code_second,
+    bond_hearing_location_second,
+    bond_judge_code_second,
+    bond_judge_second,
+    bond_hearing_request_date_second,
+    bond_completion_date_second,
+    bond_decision_second,
+    initial_bond_amount_second,
+    new_bond_amount_second,
+
     bond_court_code_last,
     bond_court_last,
     bond_hearing_location_code_last,
@@ -834,6 +962,7 @@ cases <-
 
     # IJ outcome
     case_outcome,
+    case_outcome_category,
 
     # BIA appeal
     appeal_type_code,
@@ -851,13 +980,15 @@ cases <-
     bia_decision_date,
 
     # Case lengths in days
-    nta_date_to_ij_completion_date_days,
-    nta_date_to_ij_or_bia_completion_date_days,
-    nta_date_to_first_bond_completion_date_days,
-    nta_date_to_last_bond_completion_date_days,
-    appeal_filed_date_to_decision_date_days,
-    bond_hearing_request_date_to_completion_date_days_first,
-    bond_hearing_request_date_to_completion_date_days_last
+    nta_date_to_ij_completion_date_last_days,
+    nta_date_to_ij_or_bia_completion_date_last_days,
+    nta_date_to_bond_completion_date_first_days,
+    nta_date_to_bond_completion_date_second_days,
+    nta_date_to_bond_completion_date_last_days,
+    appeal_filed_date_to_bia_decision_date_days,
+    bond_hearing_request_date_first_to_bond_completion_date_first_days,
+    bond_hearing_request_date_second_to_bond_completion_date_second_days,
+    bond_hearing_request_date_last_to_bond_completion_date_last_days
   )
 
 # filter cases for final dataset
@@ -872,6 +1003,35 @@ cases <-
     case_type_code %in% c("RMV", "WHO")
   ) |>
   select(-case_type_code, -case_type)
+
+# Validate case_outcome_category construction
+cases |>
+  col_vals_in_set(
+    case_outcome_category,
+    c("Positive", "Negative", "Ambiguous", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  # every outcome except the intentionally-unclassified WHO-only decisions
+  # should get a category; a new case_outcome value surfaces here as an NA
+  col_vals_not_null(
+    case_outcome_category,
+    preconditions = \(x) {
+      dplyr::filter(
+        x,
+        !is.na(case_outcome),
+        !case_outcome %in%
+          c(
+            "Abandonment",
+            "Deny",
+            "Grant",
+            "Grant-CAT Deferral",
+            "Grant-CAT Withholding"
+          )
+      )
+    },
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  invisible()
 
 arrow::write_parquet(
   cases,
