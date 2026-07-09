@@ -77,30 +77,79 @@ court_applications_tbl <-
 
 setDT(court_applications_tbl)
 
+# Sort applications chronologically within each case so last() picks the
+# decision on the most recently received application of each type (records
+# with missing dates sort first, so dated applications win)
+setorder(
+  court_applications_tbl,
+  idncase,
+  appl_recd_date,
+  idnproceedingappln,
+  na.last = FALSE
+)
+
+# dplyr::last is namespaced because data.table masks it; dplyr's version
+# returns NA for cases with no application of the given type
 court_applications_by_case <-
   court_applications_tbl[,
     .(
-      asylum_application = any(appl_code == "ASYL"),
-      withholding_application = any(appl_code == "ASYW"),
-      cat_application = any(appl_code == "WCAT"),
-      adjustment_application = any(appl_code == "245"),
-      non_lpr_cancellation_application = any(appl_code == "42B"),
-      lpr_cancellation_application = any(appl_code == "42A"),
-      any_relief_application = any(!is.na(appl_code) & appl_code != "VD")
+      asylum_decision_last = dplyr::last(appl_dec[appl_code %in% "ASYL"]),
+      withholding_decision_last = dplyr::last(appl_dec[appl_code %in% "ASYW"]),
+      cat_decision_last = dplyr::last(appl_dec[appl_code %in% "WCAT"]),
+      adjustment_decision_last = dplyr::last(appl_dec[appl_code %in% "245"]),
+      non_lpr_cancellation_decision_last = dplyr::last(appl_dec[
+        appl_code %in% "42B"
+      ]),
+      lpr_cancellation_decision_last = dplyr::last(appl_dec[
+        appl_code %in% "42A"
+      ])
+      # any_relief_decision = dplyr::last(
+      #   appl_dec[!is.na(appl_code) & appl_code != "VD"]
+      # )
     ),
     by = idncase
   ] |>
-  filter(!is.na(idncase))
+  filter(!is.na(idncase)) |>
+  # Recode decision codes to human-readable labels (tblLookupCourtAppDecisions)
+  mutate(
+    across(
+      ends_with("_decision_last"),
+      \(x) recode(
+        x,
+        A = "ABANDONMENT",
+        C = "CONDITIONAL GRANT",
+        D = "DENY",
+        F = "FULL GRANT",
+        G = "GRANT",
+        I = "IN COURT STIPULATED GRANT",
+        L = "GRANT WCAT",
+        M = "NOT ADJUDICATED",
+        O = "OTHER",
+        P = "PAPER STIPULATED GRANT",
+        R = "RESERVED",
+        S = "ADMIN CLOSURE",
+        T = "COV/TRANSFER",
+        W = "WITHDRAWN",
+        .default = x
+      )
+    )
+  )
 
 court_applications_by_case |>
   rows_distinct(idncase) |>
-  # any_relief_application should be TRUE whenever a specific application is TRUE
-  col_vals_expr(
-    expr(
-      !asylum_application & !withholding_application & !cat_application &
-        !adjustment_application & !non_lpr_cancellation_application &
-        !lpr_cancellation_application | any_relief_application
+  # decisions must be valid decision labels (or NA when no such application);
+  # this also catches any codes the recode above failed to resolve
+  col_vals_in_set(
+    c(
+      asylum_decision_last,
+      withholding_decision_last,
+      cat_decision_last,
+      adjustment_decision_last,
+      non_lpr_cancellation_decision_last,
+      lpr_cancellation_decision_last
+      # any_relief_decision
     ),
+    c(lkp_appl_dec$str_court_appln_dec_desc, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   invisible()
