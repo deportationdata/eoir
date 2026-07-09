@@ -129,10 +129,8 @@ message(sprintf(
 cases <-
   cases |>
   mutate(
-    # keep the last IJ decision date
-    ij_completion_date_last = final_completion_date,
     # combine to find the last completion date whether IJ or BIA
-    final_completion_date = if_else(
+    ij_or_bia_completion_date_last = if_else(
       !is.na(bia_decision_date) &
         !is.na(final_completion_date) &
         bia_decision_date > final_completion_date,
@@ -676,18 +674,18 @@ cases <-
         )
     ),
     across(
-      c(first_court, final_court),
+      c(first_court, final_court, bond_court_first, bond_court_last),
       # replace to title case but keep court codes in parentheses uppercase
       ~ str_replace(.x, "^([^(]+)", \(m) str_to_title(m))
     )
   ) |>
   # Case length variables, in days
   mutate(
-    nta_date_to_ij_decision_date_days = as.numeric(
-      difftime(ij_final_date, nta_date, units = "days")
-    ),
-    nta_date_to_ij_or_bia_decision_date_days = as.numeric(
+    nta_date_to_ij_completion_date_days = as.numeric(
       difftime(final_completion_date, nta_date, units = "days")
+    ),
+    nta_date_to_ij_or_bia_completion_date_days = as.numeric(
+      difftime(ij_or_bia_completion_date_last, nta_date, units = "days")
     ),
     nta_date_to_first_bond_completion_date_days = as.numeric(
       difftime(bond_completion_date_first, nta_date, units = "days")
@@ -725,7 +723,7 @@ cases <-
     judge_last = last_judge_name,
     bond_judge_first = bond_judge_name_first,
     bond_judge_last = bond_judge_name_last,
-    ij_decision_date_last = ij_final_date
+    ij_completion_date_last = final_completion_date
   ) |>
   relocate(
     # Case identifiers
@@ -853,8 +851,8 @@ cases <-
     bia_decision_date,
 
     # Case lengths in days
-    nta_date_to_ij_decision_date_days,
-    nta_date_to_ij_or_bia_decision_date_days,
+    nta_date_to_ij_completion_date_days,
+    nta_date_to_ij_or_bia_completion_date_days,
     nta_date_to_first_bond_completion_date_days,
     nta_date_to_last_bond_completion_date_days,
     appeal_filed_date_to_decision_date_days,
