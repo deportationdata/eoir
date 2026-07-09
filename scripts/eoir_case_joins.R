@@ -878,16 +878,3 @@ arrow::write_parquet(
   "data/cases.parquet",
   compression = "ZSTD"
 )
-
-arrow::write_parquet(
-  cases |>
-    select(
-      !(ends_with("_code") | matches("_code_(first|last)$")) |
-        any_of(c(
-          "hearing_location_code_first",
-          "hearing_location_code_last"
-        ))
-    ),
-  "data/cases-no-codes.parquet",
-  compression = "ZSTD"
-)

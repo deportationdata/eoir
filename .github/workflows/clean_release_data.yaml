@@ -108,7 +108,7 @@ jobs:
           git config --local user.name "GitHub Action"
 
           git checkout -b eoir-update-$(date +%Y-%m-%d)
-          git add data/cases.parquet data/cases-no-codes.parquet .last_modified
+          git add data/cases.parquet .last_modified
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
@@ -129,7 +129,7 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          git add data/cases.parquet data/cases-no-codes.parquet
+          git add data/cases.parquet 
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
