@@ -737,32 +737,34 @@ cases <-
     )
   ) |>
   mutate(
-    case_outcome_category = recode_values(
+    case_outcome_for_noncitizen = recode_values(
       case_outcome,
       c(
         "Administrative Closing - Other",
         "Administrative Closure",
+        "Prosecutorial Discretion - Admin Close",
+        "Failure To Prosecute (DHS Cases Only)",
+        "In Court Prosecutorial Discretion - Admin Closure",
         "Relief Granted",
         "Temporary Protected Status",
         "Terminated",
         "Grant",
         "Grant-CAT Deferral"
       ) ~
-        "Positive",
+        "Favorable",
       c(
         "Remove",
         "Voluntary Departure",
         "Abandonment",
         "Deny"
       ) ~
-        "Negative",
+        "Unfavorable",
       c(
         "Change Of Venue",
         "Haitian",
         "Jurisdiction Transferred To The BIA",
         "Other",
         "Other Administrative Completion",
-        "Prosecutorial Discretion - Admin Close",
         "Remove-CAT Deferral Granted",
         "Remove-CAT Withholding Granted",
         "Remove-INA Withholding Granted",
@@ -774,9 +776,7 @@ cases <-
       ) ~
         "Ambiguous",
       c(
-        "Dismissed By IJ",
-        "Failure To Prosecute (DHS Cases Only)",
-        "In Court Prosecutorial Discretion - Admin Closure"
+        "Dismissed By IJ"
       ) ~
         if_else(
           ij_or_bia_completion_date_last < as.Date("2025-01-20"),
