@@ -96,7 +96,8 @@ read_eoir_lookup <- function(file) {
     na = c(""),
     show_col_types = FALSE
   ) |>
-    janitor::clean_names()
+    janitor::clean_names() |>
+    mutate(across(where(is.character), str_squish))
 }
 
 #' Remove control characters, normalise whitespace, drop overflow columns,

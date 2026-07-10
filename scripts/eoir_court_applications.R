@@ -67,7 +67,7 @@ court_applications_tbl <- fast_convert(
     IDNPROCEEDINGAPPLN = "integer",
     IDNPROCEEDING = "integer",
     IDNCASE = "integer",
-    APPL_RECD_DATE = "date"
+    APPL_RECD_DATE = "datetime"
   )
 )
 
@@ -77,9 +77,6 @@ court_applications_tbl <-
 
 setDT(court_applications_tbl)
 
-# Sort applications chronologically within each case so last() picks the
-# decision on the most recently received application of each type (records
-# with missing dates sort first, so dated applications win)
 setorder(
   court_applications_tbl,
   idncase,
@@ -114,24 +111,26 @@ court_applications_by_case <-
   mutate(
     across(
       ends_with("_decision_last"),
-      \(x) recode(
-        x,
-        A = "ABANDONMENT",
-        C = "CONDITIONAL GRANT",
-        D = "DENY",
-        F = "FULL GRANT",
-        G = "GRANT",
-        I = "IN COURT STIPULATED GRANT",
-        L = "GRANT WCAT",
-        M = "NOT ADJUDICATED",
-        O = "OTHER",
-        P = "PAPER STIPULATED GRANT",
-        R = "RESERVED",
-        S = "ADMIN CLOSURE",
-        T = "COV/TRANSFER",
-        W = "WITHDRAWN",
-        .default = x
-      )
+      \(x) {
+        recode(
+          x,
+          A = "ABANDONMENT",
+          C = "CONDITIONAL GRANT",
+          D = "DENY",
+          F = "FULL GRANT",
+          G = "GRANT",
+          I = "IN COURT STIPULATED GRANT",
+          L = "GRANT WCAT",
+          M = "NOT ADJUDICATED",
+          O = "OTHER",
+          P = "PAPER STIPULATED GRANT",
+          R = "RESERVED",
+          S = "ADMIN CLOSURE",
+          T = "COV/TRANSFER",
+          W = "WITHDRAWN",
+          .default = x
+        )
+      }
     )
   )
 

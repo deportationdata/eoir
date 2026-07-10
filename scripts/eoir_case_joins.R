@@ -779,7 +779,7 @@ cases <-
         "In Court Prosecutorial Discretion - Admin Closure"
       ) ~
         if_else(
-          final_completion_date < as.Date("2025-01-20"),
+          ij_or_bia_completion_date_last < as.Date("2025-01-20"),
           "Positive",
           "Ambiguous"
         )

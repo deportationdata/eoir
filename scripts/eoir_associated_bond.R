@@ -131,8 +131,8 @@ associated_bond_tbl <- fast_convert(
     OSC_DATE = "datetime",
     UPDATE_DATE = "datetime",
     INPUT_DATE = "datetime",
-    COMP_DATE = "datetime",
-    BOND_HEAR_REQ_DATE = "datetime",
+    COMP_DATE = "date",
+    BOND_HEAR_REQ_DATE = "date",
     DATE_APPEAL_DUE = "datetime",
     E_28_DATE = "datetime",
     DECISION_DUE_DATE = "datetime",
@@ -152,7 +152,14 @@ associated_bond_tbl <-
     new_bond_amount = new_bond,
     hearing_location_code = hearing_loc_code
   ) |>
-  arrange(idncase, bond_completion_date, idnassocbond)
+  # completion-date ties are broken by when the hearing was requested (the
+  # same tie-break rule as the Stata replication), then by record id
+  arrange(
+    idncase,
+    bond_completion_date,
+    bond_hearing_request_date,
+    idnassocbond
+  )
 
 # Post-transform validation
 associated_bond_tbl |>
