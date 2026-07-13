@@ -77,16 +77,39 @@ court_applications_tbl <-
 
 setDT(court_applications_tbl)
 
+# Substantive decisions outrank administrative dispositions
+# when applications of the same type are received the same day
+DEC_PRIORITY <- c(
+  "F", # FULL GRANT
+  "G", # GRANT
+  "D", # DENY
+  "C", # CONDITIONAL GRANT
+  "I", # IN COURT STIPULATED GRANT
+  "L", # GRANT WCAT
+  "P", # PAPER STIPULATED GRANT
+  "S", # ADMIN CLOSURE
+  "A", # ABANDONMENT
+  "R", # RESERVED
+  "O", # OTHER
+  "T", # COV/TRANSFER
+  "W", # WITHDRAWN
+  "M" # NOT ADJUDICATED
+)
+
+court_applications_tbl[,
+  dec_rank := fcoalesce(match(appl_dec, rev(DEC_PRIORITY)), 0L)
+]
+court_applications_tbl[, appl_recd_day := as.Date(appl_recd_date)]
 setorder(
   court_applications_tbl,
   idncase,
+  appl_recd_day,
+  dec_rank,
   appl_recd_date,
   idnproceedingappln,
   na.last = FALSE
 )
 
-# dplyr::last is namespaced because data.table masks it; dplyr's version
-# returns NA for cases with no application of the given type
 court_applications_by_case <-
   court_applications_tbl[,
     .(
@@ -100,14 +123,10 @@ court_applications_by_case <-
       lpr_cancellation_decision_last = dplyr::last(appl_dec[
         appl_code %in% "42A"
       ])
-      # any_relief_decision = dplyr::last(
-      #   appl_dec[!is.na(appl_code) & appl_code != "VD"]
-      # )
     ),
     by = idncase
   ] |>
   filter(!is.na(idncase)) |>
-  # Recode decision codes to human-readable labels (tblLookupCourtAppDecisions)
   mutate(
     across(
       ends_with("_decision_last"),
