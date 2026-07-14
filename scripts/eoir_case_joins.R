@@ -149,6 +149,21 @@ cases <-
 rm(court_applications_by_case)
 gc()
 
+motions_by_case <-
+  arrow::read_parquet("tmp/motions_cases.parquet")
+
+cases <-
+  cases |>
+  left_join(motions_by_case, by = "idncase") |>
+  # cases with no motions have a true count of zero for every motion type
+  mutate(across(
+    starts_with("motion_") & ends_with("_count"),
+    ~ replace_na(.x, 0L)
+  ))
+
+rm(motions_by_case)
+gc()
+
 associated_bond_by_case <-
   arrow::read_parquet("tmp/associated_bond_cases.parquet")
 
@@ -780,7 +795,7 @@ cases <-
       ) ~
         if_else(
           ij_or_bia_completion_date_last < as.Date("2025-01-20"),
-          "Positive",
+          "Favorable",
           "Ambiguous"
         )
     )
@@ -960,9 +975,12 @@ cases <-
     non_lpr_cancellation_decision_last,
     lpr_cancellation_decision_last,
 
+    # Motions
+    starts_with("motion_"),
+
     # IJ outcome
     case_outcome,
-    case_outcome_category,
+    case_outcome_for_noncitizen,
 
     # BIA appeal
     appeal_type_code,
@@ -1004,17 +1022,17 @@ cases <-
   ) |>
   select(-case_type_code, -case_type)
 
-# Validate case_outcome_category construction
+# Validate case_outcome_for_noncitizen construction
 cases |>
   col_vals_in_set(
-    case_outcome_category,
-    c("Positive", "Negative", "Ambiguous", NA),
+    case_outcome_for_noncitizen,
+    c("Favorable", "Unfavorable", "Ambiguous", NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   # every outcome except the intentionally-unclassified WHO-only decisions
   # should get a category; a new case_outcome value surfaces here as an NA
   col_vals_not_null(
-    case_outcome_category,
+    case_outcome_for_noncitizen,
     preconditions = \(x) {
       dplyr::filter(
         x,

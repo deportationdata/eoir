@@ -20,6 +20,7 @@ Rscript scripts/eoir_case.R
 Rscript scripts/eoir_court_applications.R
 Rscript scripts/eoir_custody_history.R
 Rscript scripts/eoir_lookups.R
+Rscript scripts/eoir_motions.R
 Rscript scripts/eoir_proceeding.R
 Rscript scripts/eoir_proceedings_charges.R
 Rscript scripts/eoir_case_joins.R
