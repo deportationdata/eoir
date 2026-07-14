@@ -736,54 +736,6 @@ cases <-
       ~ str_replace(.x, "^([^(]+)", \(m) str_to_title(m))
     )
   ) |>
-  mutate(
-    case_outcome_for_noncitizen = recode_values(
-      case_outcome,
-      c(
-        "Administrative Closing - Other",
-        "Administrative Closure",
-        "Prosecutorial Discretion - Admin Close",
-        "Failure To Prosecute (DHS Cases Only)",
-        "In Court Prosecutorial Discretion - Admin Closure",
-        "Relief Granted",
-        "Temporary Protected Status",
-        "Terminated",
-        "Grant",
-        "Grant-CAT Deferral"
-      ) ~
-        "Favorable",
-      c(
-        "Remove",
-        "Voluntary Departure",
-        "Abandonment",
-        "Deny"
-      ) ~
-        "Unfavorable",
-      c(
-        "Change Of Venue",
-        "Haitian",
-        "Jurisdiction Transferred To The BIA",
-        "Other",
-        "Other Administrative Completion",
-        "Remove-CAT Deferral Granted",
-        "Remove-CAT Withholding Granted",
-        "Remove-INA Withholding Granted",
-        "Transfer",
-        # Withdraw is the WHO-case spelling of Withdrawn
-        "Withdraw",
-        "Withdrawn",
-        "Zero Bond"
-      ) ~
-        "Ambiguous",
-      c(
-        "Dismissed By IJ"
-      ) ~
-        if_else(
-          ij_or_bia_completion_date_last < as.Date("2025-01-20"),
-          "Positive",
-          "Ambiguous"
-        )
-    )
   ) |>
   rename(
     court_code_first = first_court_code,
