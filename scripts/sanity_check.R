@@ -9,7 +9,7 @@ last_modified_path <- if (length(args) >= 3) args[3] else ".last_modified"
 report_path <- if (length(args) >= 4) args[4] else "sanity_report.md"
 
 RECENCY_TOLERANCE_DAYS <- 7L
-RECENCY_COL <- "final_completion_date"
+RECENCY_COL <- "ij_or_bia_completion_date_last"
 
 DEPORTED_OUTCOME_TOLERANCE_PCT <- 0.5
 EXPECTED_DEPORTED_OUTCOMES <- c("Remove", "Voluntary Departure")

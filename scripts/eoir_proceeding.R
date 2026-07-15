@@ -264,7 +264,8 @@ cases_from_proceedings <-
       in_absentia = last(in_absentia),
       first_hearing_location_code = first(hearing_loc_code),
       last_hearing_location_code = last(hearing_loc_code),
-      judge_code = last(judge_code),
+      first_judge_code = first(judge_code),
+      last_judge_code = last(judge_code),
       deported_1_code = last(deported_1),
       deported_2_code = last(deported_2)
     ),
@@ -300,7 +301,11 @@ cases_from_proceedings |>
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
-    judge_code,
+    first_judge_code,
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    last_judge_code,
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   invisible()

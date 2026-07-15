@@ -131,8 +131,8 @@ associated_bond_tbl <- fast_convert(
     OSC_DATE = "datetime",
     UPDATE_DATE = "datetime",
     INPUT_DATE = "datetime",
-    COMP_DATE = "datetime",
-    BOND_HEAR_REQ_DATE = "datetime",
+    COMP_DATE = "date",
+    BOND_HEAR_REQ_DATE = "date",
     DATE_APPEAL_DUE = "datetime",
     E_28_DATE = "datetime",
     DECISION_DUE_DATE = "datetime",
@@ -149,9 +149,17 @@ associated_bond_tbl <-
     bond_hearing_request_date = bond_hear_req_date,
     bond_decision = dec,
     initial_bond_amount = initial_bond,
-    new_bond_amount = new_bond
+    new_bond_amount = new_bond,
+    hearing_location_code = hearing_loc_code
   ) |>
-  arrange(idncase, bond_completion_date, idnassocbond)
+  # completion-date ties are broken by when the hearing was requested (the
+  # same tie-break rule as the Stata replication), then by record id
+  arrange(
+    idncase,
+    bond_completion_date,
+    bond_hearing_request_date,
+    idnassocbond
+  )
 
 # Post-transform validation
 associated_bond_tbl |>
@@ -172,34 +180,56 @@ setDT(associated_bond_tbl)
 associated_bond_by_case <-
   associated_bond_tbl[,
     .(
-      bond_completion_date = last(bond_completion_date),
-      bond_court_code = last(base_city_code),
-      bond_judge_code = last(ij_code),
-      bond_hearing_request_date = last(bond_hearing_request_date),
-      bond_decision = last(bond_decision),
-      initial_bond_amount = last(initial_bond_amount),
-      new_bond_amount = last(new_bond_amount)
+      bond_completion_date_first = first(bond_completion_date),
+      bond_court_code_first = first(base_city_code),
+      bond_judge_code_first = first(ij_code),
+      hearing_location_code_first = first(hearing_location_code),
+      bond_hearing_request_date_first = first(bond_hearing_request_date),
+      bond_decision_first = first(bond_decision),
+      initial_bond_amount_first = first(initial_bond_amount),
+      new_bond_amount_first = first(new_bond_amount),
+
+      bond_completion_date_second = bond_completion_date[2],
+      bond_court_code_second = base_city_code[2],
+      bond_judge_code_second = ij_code[2],
+      hearing_location_code_second = hearing_location_code[2],
+      bond_hearing_request_date_second = bond_hearing_request_date[2],
+      bond_decision_second = bond_decision[2],
+      initial_bond_amount_second = initial_bond_amount[2],
+      new_bond_amount_second = new_bond_amount[2],
+
+      bond_completion_date_last = last(bond_completion_date),
+      bond_court_code_last = last(base_city_code),
+      bond_judge_code_last = last(ij_code),
+      hearing_location_code_last = last(hearing_location_code),
+      bond_hearing_request_date_last = last(bond_hearing_request_date),
+      bond_decision_last = last(bond_decision),
+      initial_bond_amount_last = last(initial_bond_amount),
+      new_bond_amount_last = last(new_bond_amount)
     ),
     by = idncase
   ] |>
   mutate(
-    bond_decision = recode(
-      bond_decision,
-      G = "AMELIORATION GRANTED",
-      W = "BOND REQUEST WITHDRAWN",
-      D = "AMELIORATION DENIED-NO JURISDICTION",
-      I = "BOND AMOUNT INCREASED",
-      E = "AMELIORATION DENIED",
-      O = "OTHER",
-      F = "FLORES - RELEASE",
-      L = "FLORES - NO RELEASE",
-      A = "BOND DENIED-MOOT",
-      C = "BOND GRANTED-AMOUNT DECREASED",
-      J = "BOND DENIED-NO JURISDICTION",
-      N = "BOND DENIED- NO CHANGE (NO BOND SET BY DHS)",
-      S = "BOND DENIED- NO CHANGE (DHS BOND AMOUNT UNCHANGED)",
-      R = "BOND GRANTED-OWN RECOGNIZANCE",
-      .default = bond_decision
+    across(
+      c(bond_decision_first, bond_decision_second, bond_decision_last),
+      ~ recode(
+        .x,
+        G = "AMELIORATION GRANTED",
+        W = "BOND REQUEST WITHDRAWN",
+        D = "AMELIORATION DENIED-NO JURISDICTION",
+        I = "BOND AMOUNT INCREASED",
+        E = "AMELIORATION DENIED",
+        O = "OTHER",
+        F = "FLORES - RELEASE",
+        L = "FLORES - NO RELEASE",
+        A = "BOND DENIED-MOOT",
+        C = "BOND GRANTED-AMOUNT DECREASED",
+        J = "BOND DENIED-NO JURISDICTION",
+        N = "BOND DENIED- NO CHANGE (NO BOND SET BY DHS)",
+        S = "BOND DENIED- NO CHANGE (DHS BOND AMOUNT UNCHANGED)",
+        R = "BOND GRANTED-OWN RECOGNIZANCE",
+        .default = .x
+      )
     )
   )
 
@@ -207,7 +237,17 @@ associated_bond_by_case |>
   rows_distinct(idncase) |>
   # Verify recode resolved all single-letter codes
   col_vals_not_in_set(
-    bond_decision,
+    bond_decision_first,
+    c("G", "W", "D", "I", "E", "O", "F", "L", "A", "C", "J", "N", "S", "R"),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_not_in_set(
+    bond_decision_second,
+    c("G", "W", "D", "I", "E", "O", "F", "L", "A", "C", "J", "N", "S", "R"),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_not_in_set(
+    bond_decision_last,
     c("G", "W", "D", "I", "E", "O", "F", "L", "A", "C", "J", "N", "S", "R"),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
