@@ -913,7 +913,6 @@ cases <-
 
     # IJ outcome
     case_outcome,
-    case_outcome_category,
 
     # BIA appeal
     appeal_type_code,
@@ -954,35 +953,6 @@ cases <-
     case_type_code %in% c("RMV", "WHO")
   ) |>
   select(-case_type_code, -case_type)
-
-# Validate case_outcome_category construction
-cases |>
-  col_vals_in_set(
-    case_outcome_category,
-    c("Positive", "Negative", "Ambiguous", NA),
-    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  ) |>
-  # every outcome except the intentionally-unclassified WHO-only decisions
-  # should get a category; a new case_outcome value surfaces here as an NA
-  col_vals_not_null(
-    case_outcome_category,
-    preconditions = \(x) {
-      dplyr::filter(
-        x,
-        !is.na(case_outcome),
-        !case_outcome %in%
-          c(
-            "Abandonment",
-            "Deny",
-            "Grant",
-            "Grant-CAT Deferral",
-            "Grant-CAT Withholding"
-          )
-      )
-    },
-    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
-  ) |>
-  invisible()
 
 arrow::write_parquet(
   cases,
