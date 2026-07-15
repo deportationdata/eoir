@@ -736,7 +736,6 @@ cases <-
       ~ str_replace(.x, "^([^(]+)", \(m) str_to_title(m))
     )
   ) |>
-  ) |>
   rename(
     court_code_first = first_court_code,
     court_first = first_court,
