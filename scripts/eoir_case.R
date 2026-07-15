@@ -184,11 +184,12 @@ cases_tbl <-
   cases_tbl |>
   janitor::clean_names() |>
   rename(
-    asylum_claim_type = c_asy_type,
+    asylum_claim_type_code = c_asy_type,
     sex_code = sex,
     custody_code = custody,
     case_priority_code = casepriority_code,
-    e28_date = e_28_date
+    e28_date = e_28_date,
+    entry_date = date_of_entry
   ) |>
   select(
     -c(
@@ -223,7 +224,8 @@ cases_tbl <-
     )
   ) |>
   mutate(
-    birth_year = as.integer(str_extract(c_birthdate, "\\d{4}"))
+    birth_year = as.integer(str_extract(c_birthdate, "\\d{4}")),
+    represented = !is.na(e28_date)
   ) |>
   select(-c_birthdate)
 
