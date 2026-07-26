@@ -21,10 +21,15 @@ library(pointblank)
 #     allocation.
 #   - 2020 Census geography is applied to all cases regardless of year. Match
 #     rates may degrade for older cases due to ZIP code churn.
+#   - Input encodings: geocorr CSVs are latin1; Census tab20 relationship
+#     files are UTF-8 with a BOM. The reads below must specify (or default to)
+#     these encodings or names with diacritics (Añasco, Mayagüez, Española)
+#     are corrupted to U+FFFD or mojibake.
 
 # --- State FIPS → abbreviation lookup from geocorr state file ---
 state_lookup <- read_csv(
-  "inputs/geocorr2022_2607607974_state.csv"
+  "inputs/geocorr2022_2607607974_state.csv",
+  locale = locale(encoding = "latin1")
 ) |>
   slice(-1) |>
   type_convert() |>
@@ -37,8 +42,10 @@ state_lookup <- read_csv(
 # --- ZIP → state + county from geocorr (ZCTA → county) ---
 # County file has: zcta, county (5-digit FIPS), CountyName ("Name ST")
 # State and state_fips_code derived from county FIPS; state abbreviation from state file.
+# Geocorr CSVs are latin1-encoded (see MEASUREMENT NOTES).
 zcta_county <- read_csv(
-  "inputs/geocorr2022_2607608761_county.csv"
+  "inputs/geocorr2022_2607608761_county.csv",
+  locale = locale(encoding = "latin1")
 ) |>
   slice(-1) |>
   type_convert() |>
@@ -62,7 +69,8 @@ zcta_county <- read_csv(
 
 # --- ZIP → place from geocorr (ZCTA → place) ---
 zcta_place <- read_csv(
-  "inputs/geocorr2022_2607609986_place.csv"
+  "inputs/geocorr2022_2607609986_place.csv",
+  locale = locale(encoding = "latin1")
 ) |>
   slice(-1) |>
   type_convert() |>
@@ -96,10 +104,10 @@ territory_state_lookup <- tribble(
   "78"        , "VI"
 )
 
+# tab20 files are UTF-8 with a BOM; readr's default UTF-8 read strips the BOM.
 territory_county <- read_delim(
   "inputs/tab20_zcta520_county20_natl.txt",
-  delim = "|",
-  locale = locale(encoding = "latin1")
+  delim = "|"
 ) |>
   filter(
     !is.na(GEOID_ZCTA5_20),
@@ -121,8 +129,7 @@ territory_county <- read_delim(
 
 territory_place <- read_delim(
   "inputs/tab20_zcta520_place20_natl.txt",
-  delim = "|",
-  locale = locale(encoding = "latin1")
+  delim = "|"
 ) |>
   filter(
     !is.na(GEOID_ZCTA5_20),
@@ -170,6 +177,21 @@ zip_lookup |>
   col_vals_expr(
     ~ is.na(place) | !str_detect(place, ",? [A-Z]{2}$"),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  # Encoding guards: names must be valid UTF-8 with no U+FFFD replacement
+  # character (U+FFFD appears when the latin1 geocorr files are misread as
+  # UTF-8)
+  col_vals_expr(~ validUTF8(county) & !str_detect(county, "\uFFFD")) |>
+  col_vals_expr(
+    ~ is.na(place) | (validUTF8(place) & !str_detect(place, "\uFFFD"))
+  ) |>
+  # Encoding canary: at least one PR municipio must retain its diacritic
+  # ("Añasco Municipio"). Catches mojibake regressions (e.g. a future UTF-8
+  # geocorr refresh read as latin1) that the U+FFFD check cannot see.
+  col_vals_gte(
+    n_anasco,
+    1,
+    preconditions = \(x) tibble(n_anasco = sum(x$county == "A\u00f1asco Municipio"))
   ) |>
   col_vals_in_set(
     state,

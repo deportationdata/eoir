@@ -702,7 +702,10 @@ cases <-
         !contains("judge_name") &
         !contains("charge_section") &
         !contains("fips") &
-        !contains("state"),
+        !contains("state") &
+        # county/place names arrive pre-cased from geocorr/Census;
+        # str_to_title would mangle DeKalb, McLean, O'Brien, "Baltimore city"
+        !any_of(c("county", "place")),
       ~ str_to_title(.x) |>
         make_abbr_caps(
           abbr = c(
