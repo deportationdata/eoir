@@ -21,6 +21,14 @@ library(pointblank)
 #     allocation.
 #   - 2020 Census geography is applied to all cases regardless of year. Match
 #     rates may degrade for older cases due to ZIP code churn.
+#   - place_fips_code is the full 7-digit Census place GEOID: 2-digit state
+#     FIPS + 5-digit place code. County and place are assigned independently
+#     (each by largest population share), so a ZCTA straddling a state line
+#     can have its place in a different state than its county; the GEOID's
+#     state prefix follows the place's own state and may differ from
+#     state_fips_code (which follows the county). In the 2022 geocorr vintage
+#     this affects exactly one ZCTA (97635: county Modoc, CA 06; place New
+#     Pine Creek CDP, OR 41) — correct behavior, not a join error.
 #   - Input encodings: geocorr CSVs are latin1; Census tab20 relationship
 #     files are UTF-8 with a BOM. The reads below must specify (or default to)
 #     these encodings or names with diacritics (Añasco, Mayagüez, Española)
@@ -68,6 +76,13 @@ zcta_county <- read_csv(
   )
 
 # --- ZIP → place from geocorr (ZCTA → place) ---
+# Place file has: zcta, state (2-digit state FIPS of the place), place
+# (5-digit place code within state), PlaceName. place_fips_code below is the
+# full 7-digit place GEOID (state FIPS + place code), built from the place
+# file's OWN state column: a state-line-straddling ZCTA's most-populous place
+# can sit in a different state than its most-populous county (see MEASUREMENT
+# NOTES), so the county-derived state_fips_code must not be used here.
+# "99999" is geocorr's not-in-a-place sentinel.
 zcta_place <- read_csv(
   "inputs/geocorr2022_2607609986_place.csv",
   locale = locale(encoding = "latin1")
@@ -78,18 +93,22 @@ zcta_place <- read_csv(
   group_by(zcta) |>
   slice_max(afact, n = 1, with_ties = FALSE) |>
   ungroup() |>
-  rename(place_fips_code = place) |>
+  rename(place_code = place) |>
   transmute(
     zcta,
     place = if_else(
-      place_fips_code == "99999",
+      place_code == "99999",
       NA_character_,
       PlaceName |>
         str_remove(",? [A-Z]{2}$") |>
         str_remove("\\s*\\(.*\\)") |>
         str_squish()
     ),
-    place_fips_code = na_if(place_fips_code, "99999")
+    place_fips_code = if_else(
+      place_code == "99999",
+      NA_character_,
+      str_c(str_pad(state, 2, pad = "0"), str_pad(place_code, 5, pad = "0"))
+    )
   )
 
 # --- Territory supplement from Census 2020 relationship files (AS, GU, MP, VI) ---
@@ -143,7 +162,8 @@ territory_place <- read_delim(
     place = NAMELSAD_PLACE_20 |>
       str_remove("\\s*\\(.*\\)") |>
       str_squish(),
-    place_fips_code = str_sub(GEOID_PLACE_20, 3, 7)
+    # GEOID_PLACE_20 is already the full 7-digit place GEOID
+    place_fips_code = GEOID_PLACE_20
   )
 
 territory_lookup <- left_join(territory_county, territory_place, by = "zcta") |>
@@ -168,6 +188,7 @@ zip_lookup |>
   col_vals_regex(zcta, "^\\d{5}$") |>
   col_vals_regex(state_fips_code, "^\\d{2}$") |>
   col_vals_regex(county_fips_code, "^\\d{5}$") |>
+  col_vals_regex(place_fips_code, "^\\d{7}$", na_pass = TRUE) |>
   rows_distinct(zcta) |>
   # County and place names should not end with state abbreviations
   col_vals_expr(

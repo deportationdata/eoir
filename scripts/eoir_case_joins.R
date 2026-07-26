@@ -101,6 +101,12 @@ cases |>
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
+  col_vals_regex(
+    place_fips_code,
+    "^\\d{7}$",
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
   invisible()
 
 appeals_by_case <-
