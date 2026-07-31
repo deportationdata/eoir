@@ -4,6 +4,13 @@ library(pointblank)
 
 # --- ZIP → county, state lookup for EOIR respondent geography ---
 #
+# The ZCTA → county/place allocation itself is computed and published by
+# deportationdata/us-shapefiles (code/zip_xwalk.R there), not here — this
+# script only fetches that file and renames it to this pipeline's schema.
+# Fetching (not vendoring a copy of the input CSVs) means an upstream fix
+# there — e.g. a geocorr vintage refresh or an encoding correction — reaches
+# this pipeline on the next run without a code change here.
+#
 # MEASUREMENT NOTES:
 #   - alien_zipcode in EOIR data is the address of record with the immigration
 #     court — not necessarily a residential address. It may reflect an attorney's
@@ -29,155 +36,59 @@ library(pointblank)
 #     state_fips_code (which follows the county). In the 2022 geocorr vintage
 #     this affects exactly one ZCTA (97635: county Modoc, CA 06; place New
 #     Pine Creek CDP, OR 41) — correct behavior, not a join error.
-#   - Input encodings: geocorr CSVs are latin1; Census tab20 relationship
-#     files are UTF-8 with a BOM. The reads below must specify (or default to)
-#     these encodings or names with diacritics (Añasco, Mayagüez, Española)
-#     are corrupted to U+FFFD or mojibake.
 
-# --- State FIPS → abbreviation lookup from geocorr state file ---
-state_lookup <- read_csv(
-  "inputs/geocorr2022_2607607974_state.csv",
-  locale = locale(encoding = "latin1")
-) |>
-  slice(-1) |>
-  type_convert() |>
-  distinct(state, stab) |>
-  transmute(
-    state_fips_code = str_pad(state, 2, pad = "0"),
-    state = stab
-  )
+ZIP_XWALK_URL <- paste0(
+  "https://media.githubusercontent.com/media/deportationdata/",
+  "us-shapefiles/main/data/zip-xwalk.parquet"
+)
+zip_xwalk_path <- "tmp/zip-xwalk.parquet"
 
-# --- ZIP → state + county from geocorr (ZCTA → county) ---
-# County file has: zcta, county (5-digit FIPS), CountyName ("Name ST")
-# State and state_fips_code derived from county FIPS; state abbreviation from state file.
-# Geocorr CSVs are latin1-encoded (see MEASUREMENT NOTES).
-zcta_county <- read_csv(
-  "inputs/geocorr2022_2607608761_county.csv",
-  locale = locale(encoding = "latin1")
-) |>
-  slice(-1) |>
-  type_convert() |>
-  filter(!is.na(zcta), str_detect(zcta, "^\\d+$")) |>
-  group_by(zcta) |>
-  slice_max(afact, n = 1, with_ties = FALSE) |>
-  ungroup() |>
-  mutate(
-    county_fips_code = str_pad(county, 5, pad = "0"),
-    state_fips_code = str_sub(county_fips_code, 1, 2)
-  ) |>
-  left_join(state_lookup, by = "state_fips_code") |>
-  transmute(
-    zcta,
-    state,
-    state_fips_code,
-    county = str_remove(CountyName, ",? [A-Z]{2}(\\s*\\(.*\\))?$") |>
-      str_squish(),
-    county_fips_code
-  )
-
-# --- ZIP → place from geocorr (ZCTA → place) ---
-# Place file has: zcta, state (2-digit state FIPS of the place), place
-# (5-digit place code within state), PlaceName. place_fips_code below is the
-# full 7-digit place GEOID (state FIPS + place code), built from the place
-# file's OWN state column: a state-line-straddling ZCTA's most-populous place
-# can sit in a different state than its most-populous county (see MEASUREMENT
-# NOTES), so the county-derived state_fips_code must not be used here.
-# "99999" is geocorr's not-in-a-place sentinel.
-zcta_place <- read_csv(
-  "inputs/geocorr2022_2607609986_place.csv",
-  locale = locale(encoding = "latin1")
-) |>
-  slice(-1) |>
-  type_convert() |>
-  filter(!is.na(zcta), str_detect(zcta, "^\\d+$")) |>
-  group_by(zcta) |>
-  slice_max(afact, n = 1, with_ties = FALSE) |>
-  ungroup() |>
-  rename(place_code = place) |>
-  transmute(
-    zcta,
-    place = if_else(
-      place_code == "99999",
-      NA_character_,
-      PlaceName |>
-        str_remove(",? [A-Z]{2}$") |>
-        str_remove("\\s*\\(.*\\)") |>
-        str_squish()
-    ),
-    place_fips_code = if_else(
-      place_code == "99999",
-      NA_character_,
-      str_c(str_pad(state, 2, pad = "0"), str_pad(place_code, 5, pad = "0"))
-    )
-  )
-
-# --- Territory supplement from Census 2020 relationship files (AS, GU, MP, VI) ---
-# Geocorr covers 50 states + DC + PR; territories need Census relationship files.
-# These use area-weighted allocation (AREALAND_PART).
-territory_fips <- c("60", "66", "69", "78")
-territory_state_lookup <- tribble(
-  ~state_fips_code , ~state ,
-  "60"        , "AS"   ,
-  "66"        , "GU"   ,
-  "69"        , "MP"   ,
-  "78"        , "VI"
+# media.githubusercontent.com/media/... resolves the Git LFS object; the
+# plain raw.githubusercontent.com URL for an LFS-tracked file instead
+# returns ~130 bytes of pointer text ("version https://git-lfs...") that
+# arrow would fail to parse anyway, but check the byte count directly so a
+# bad URL fails with a clear message instead of a cryptic parquet error.
+download.file(ZIP_XWALK_URL, zip_xwalk_path, mode = "wb", quiet = TRUE)
+stopifnot(
+  "zip-xwalk.parquet download looks like a Git LFS pointer, not real data — check ZIP_XWALK_URL uses media.githubusercontent.com/media/..., not raw.githubusercontent.com" =
+    file.size(zip_xwalk_path) > 100000
 )
 
-# tab20 files are UTF-8 with a BOM; readr's default UTF-8 read strips the BOM.
-territory_county <- read_delim(
-  "inputs/tab20_zcta520_county20_natl.txt",
-  delim = "|"
-) |>
-  filter(
-    !is.na(GEOID_ZCTA5_20),
-    str_sub(GEOID_COUNTY_20, 1, 2) %in% territory_fips
-  ) |>
-  group_by(GEOID_ZCTA5_20) |>
-  slice_max(AREALAND_PART, n = 1, with_ties = FALSE) |>
-  ungroup() |>
-  transmute(
-    zcta = GEOID_ZCTA5_20,
-    state_fips_code = str_sub(GEOID_COUNTY_20, 1, 2),
-    county = str_remove(
-      NAMELSAD_COUNTY_20,
-      " (County|Borough|Census Area|Municipality|District|Island|Municipio)$"
-    ),
-    county_fips_code = GEOID_COUNTY_20
-  ) |>
-  left_join(territory_state_lookup, by = "state_fips_code")
+zip_xwalk <- arrow::read_parquet(zip_xwalk_path)
 
-territory_place <- read_delim(
-  "inputs/tab20_zcta520_place20_natl.txt",
-  delim = "|"
-) |>
-  filter(
-    !is.na(GEOID_ZCTA5_20),
-    str_sub(GEOID_PLACE_20, 1, 2) %in% territory_fips
-  ) |>
-  group_by(GEOID_ZCTA5_20) |>
-  slice_max(AREALAND_PART, n = 1, with_ties = FALSE) |>
-  ungroup() |>
+# us-shapefiles' own column names (see its README) differ from this
+# pipeline's long-standing schema; rename rather than touch every
+# downstream reference in eoir_case_joins.R.
+zip_lookup <-
+  zip_xwalk |>
   transmute(
-    zcta = GEOID_ZCTA5_20,
-    place = NAMELSAD_PLACE_20 |>
-      str_remove("\\s*\\(.*\\)") |>
-      str_squish(),
-    # GEOID_PLACE_20 is already the full 7-digit place GEOID
-    place_fips_code = GEOID_PLACE_20
+    zcta,
+    state = stusps,
+    state_fips_code = str_sub(county_geoid, 1, 2),
+    county,
+    county_fips_code = county_geoid,
+    place,
+    place_fips_code = place_geoid
   )
 
-territory_lookup <- left_join(territory_county, territory_place, by = "zcta") |>
-  select(zcta, state, state_fips_code, county, county_fips_code, place, place_fips_code)
-
-# --- Combine geocorr + territory lookups ---
-zip_lookup <-
-  left_join(zcta_county, zcta_place, by = "zcta") |>
-  bind_rows(territory_lookup)
-
 # --- Validation checks ---
+# Same checks this script ran on its own locally-computed zip_lookup before
+# the fetch — kept (not relaxed) because this data now arrives from a
+# network fetch of another repo's build output rather than a local
+# computation this script controls directly.
 
 us_50_plus_dc <- c(state.abb, "DC")
 territories <- c("AS", "GU", "MP", "PR", "VI")
+
+# Non-ASCII string literals in .R source parse with Encoding() "unknown", not
+# "UTF-8" — in a non-UTF-8 session locale (e.g. a CI runner set to C), `==`
+# against an arrow-decoded (Encoding() "UTF-8") string then compares unequal
+# byte-for-byte-identical text. Tag the literal explicitly so the encoding
+# canary below doesn't depend on the build machine's locale.
+utf8_literal <- function(x) {
+  Encoding(x) <- "UTF-8"
+  x
+}
 
 zip_lookup |>
   col_vals_not_null(zcta) |>
@@ -200,19 +111,21 @@ zip_lookup |>
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   # Encoding guards: names must be valid UTF-8 with no U+FFFD replacement
-  # character (U+FFFD appears when the latin1 geocorr files are misread as
-  # UTF-8)
+  # character (U+FFFD would appear if us-shapefiles' own build ever misread
+  # a latin1 geocorr file as UTF-8 again)
   col_vals_expr(~ validUTF8(county) & !str_detect(county, "\uFFFD")) |>
   col_vals_expr(
     ~ is.na(place) | (validUTF8(place) & !str_detect(place, "\uFFFD"))
   ) |>
   # Encoding canary: at least one PR municipio must retain its diacritic
-  # ("Añasco Municipio"). Catches mojibake regressions (e.g. a future UTF-8
-  # geocorr refresh read as latin1) that the U+FFFD check cannot see.
+  # ("Añasco Municipio"). Catches mojibake regressions upstream that the
+  # U+FFFD check alone cannot see.
   col_vals_gte(
     n_anasco,
     1,
-    preconditions = \(x) tibble(n_anasco = sum(x$county == "A\u00f1asco Municipio"))
+    preconditions = \(x) {
+      tibble(n_anasco = sum(x$county == utf8_literal("Añasco Municipio")))
+    }
   ) |>
   col_vals_in_set(
     state,
