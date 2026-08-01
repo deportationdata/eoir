@@ -105,5 +105,6 @@ custodyhistory_by_case |>
 
 arrow::write_parquet(
   custodyhistory_by_case,
-  "tmp/custodyhistory_cases.parquet"
+  "tmp/custodyhistory_cases.parquet",
+  compression = "ZSTD"
 )

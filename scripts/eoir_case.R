@@ -1,7 +1,8 @@
 library(tidyverse)
 library(duckplyr)
-library(data.table)
 library(pointblank)
+# data.table is used via `data.table::` in case_pre_fix() below rather than
+# attached — see the note in scripts/utilities.R.
 
 source("scripts/utilities.R")
 
@@ -67,7 +68,7 @@ case_pre_fix <- function(dt, row_n, n_extra) {
   i <- dt[.(row_n), which = TRUE]
   city <- trimws(as.character(dt[i, ALIEN_CITY]))
   state <- trimws(as.character(dt[i, ALIEN_STATE]))
-  set(dt, i, "ALIEN_CITY", paste(city, state))
+  data.table::set(dt, i, "ALIEN_CITY", paste(city, state))
 }
 
 cases_tbl <-
@@ -242,5 +243,6 @@ cases_tbl |>
 
 arrow::write_parquet(
   cases_tbl,
-  "tmp/cases_tmp.parquet"
+  "tmp/cases_tmp.parquet",
+  compression = "ZSTD"
 )

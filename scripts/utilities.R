@@ -1,7 +1,13 @@
 # Shared utilities for EOIR CSV cleaning
 # Handles: control characters, extra tabs (mid-row shifts & end-of-row overflow)
 
-library(data.table)
+# data.table is deliberately NOT attached: it is loaded via `data.table::`
+# below instead. `utilities.R` is sourced *after* each script's
+# `library(duckplyr)`, so attaching it here would put it last on the search
+# path and mask `dplyr::first()`, `last()` and `between()` pipeline-wide —
+# and `data.table::last(character(0))` returns `character(0)` where
+# `dplyr::last()` returns NA. `[.data.table`, `:=`, `.I` and `..col` dispatch
+# on object class rather than attachment, so they keep working unqualified.
 library(stringr)
 library(duckplyr)
 library(readr)
@@ -49,7 +55,7 @@ read_eoir_tsv <- function(file) {
   # Use na.strings="" to preserve values like "N/A" that
   # auto_fix_tab_shifts needs for shifted-row detection; clean_eoir_cols()
   # converts NA-like strings after fixing.
-  dt <- fread(
+  dt <- data.table::fread(
     if (needs_padding) tmp else file,
     sep = "\t",
     quote = "",
@@ -178,7 +184,7 @@ shift_left_dt <- function(dt, row_n, col_name, n_offset) {
   }
   for (j in seq(c_idx, last_col)) {
     j_offset <- j + n_offset
-    set(
+    data.table::set(
       dt,
       i,
       j,
@@ -437,7 +443,7 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
 
   initial_nrow <- nrow(dt)
   dt[, n := .I]
-  setkey(dt, n)
+  data.table::setkey(dt, n)
 
   overflow_cols <- grep("^V\\d+$", colnames(dt), value = TRUE)
 
@@ -465,7 +471,7 @@ auto_fix_tab_shifts <- function(dt, shift_col_finder, pre_fix = NULL) {
   sample_ns <- integer(0)
   if (n_sample > 0L) {
     sample_ns <- sort(sample(all_candidate, n_sample))
-    untouched_snapshot <- copy(dt[sample_ns, ..check_cols])
+    untouched_snapshot <- data.table::copy(dt[sample_ns, ..check_cols])
   }
 
   rows_to_drop <- integer(0)

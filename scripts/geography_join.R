@@ -191,4 +191,4 @@ zip_lookup |>
   ) |>
   invisible()
 
-arrow::write_parquet(zip_lookup, "tmp/zip_lookup.parquet")
+arrow::write_parquet(zip_lookup, "tmp/zip_lookup.parquet", compression = "ZSTD")

@@ -114,6 +114,10 @@ court_applications_tbl <- court_applications_tbl |>
 # duckplyr cannot execute group_by() and silently falls back to plain dplyr,
 # losing the speedup. arrange() afterwards because `.by =` returns groups in
 # hash order.
+#
+# dplyr::last() is qualified deliberately: these vectors are empty whenever a
+# case has no application of that type, and dplyr::last() returns NA there
+# where data.table::last() would return character(0) and corrupt the row.
 court_applications_by_case <-
   court_applications_tbl |>
   summarise(
@@ -178,5 +182,6 @@ court_applications_by_case |>
 
 arrow::write_parquet(
   court_applications_by_case,
-  "tmp/court_applications_cases.parquet"
+  "tmp/court_applications_cases.parquet",
+  compression = "ZSTD"
 )

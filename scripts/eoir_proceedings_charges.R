@@ -148,5 +148,6 @@ charges_by_case |>
 
 arrow::write_parquet(
   charges_by_case,
-  "tmp/charges_cases.parquet"
+  "tmp/charges_cases.parquet",
+  compression = "ZSTD"
 )

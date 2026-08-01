@@ -1,7 +1,6 @@
 library(tidyverse)
 library(duckplyr)
 library(pointblank)
-library(collapse)
 
 source("scripts/utilities.R")
 
@@ -227,15 +226,30 @@ cases_from_proceedings <-
   ) |>
   # clean up in_absentia column which has erroneous values due to csv errors
   # assumes missing values, date errors, and "X", "DEP", and "5" values are not absentia
+  # (plain boolean rather than case_when(): duckplyr translates is.na()/&/== to
+  # DuckDB but falls back to dplyr on case_when())
   mutate(
-    in_absentia = case_when(in_absentia == "Y" ~ TRUE, TRUE ~ FALSE)
+    in_absentia = !is.na(in_absentia) & in_absentia == "Y"
   ) |>
   # drop rows with missing IDNCASE (creating a case-level dataset)
   # -2 rows
-  filter(!is.na(idncase)) |>
-  # drop cases with inconsistent case types
-  # -314 rows
-  filter(n_distinct(case_type_code) == 1, .by = "idncase") |>
+  filter(!is.na(idncase))
+
+# Cases whose proceedings disagree on case type are dropped (-314 rows).
+# Expressed as an aggregate plus a join rather than
+# `filter(n_distinct(case_type_code) == 1, .by = "idncase")`: duckplyr has no
+# translation for a grouped filter and falls back to dplyr, which would
+# materialize the whole 16.5M-row frame immediately before the arrange() and
+# summarise() below. This form stays in DuckDB.
+consistent_case_types <-
+  cases_from_proceedings |>
+  summarise(n_case_types = n_distinct(case_type_code), .by = idncase) |>
+  filter(n_case_types == 1) |>
+  select(idncase)
+
+cases_from_proceedings <-
+  cases_from_proceedings |>
+  inner_join(consistent_case_types, by = "idncase") |>
   arrange(
     idncase,
     comp_date,
@@ -244,7 +258,7 @@ cases_from_proceedings <-
     idnproceeding
   )
 
-rm(proceeding_tbl)
+rm(proceeding_tbl, consistent_case_types)
 gc()
 
 # Row order within each idncase group is established by the arrange() above
@@ -314,5 +328,6 @@ cases_from_proceedings |>
 
 arrow::write_parquet(
   cases_from_proceedings,
-  "tmp/cases_from_proceedings.parquet"
+  "tmp/cases_from_proceedings.parquet",
+  compression = "ZSTD"
 )

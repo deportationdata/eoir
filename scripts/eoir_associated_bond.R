@@ -258,5 +258,6 @@ associated_bond_by_case |>
 
 arrow::write_parquet(
   associated_bond_by_case,
-  "tmp/associated_bond_cases.parquet"
+  "tmp/associated_bond_cases.parquet",
+  compression = "ZSTD"
 )

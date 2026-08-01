@@ -168,5 +168,6 @@ appeals_by_case |>
 
 arrow::write_parquet(
   appeals_by_case,
-  "tmp/appeals_cases.parquet"
+  "tmp/appeals_cases.parquet",
+  compression = "ZSTD"
 )

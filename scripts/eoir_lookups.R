@@ -24,8 +24,13 @@ other_comp_code_lookup <-
     other_completion = str_dec_description
   )
 
-arrow::write_parquet(dec_code_lookup, "tmp/dec_code_lookup.parquet")
+arrow::write_parquet(
+  dec_code_lookup,
+  "tmp/dec_code_lookup.parquet",
+  compression = "ZSTD"
+)
 arrow::write_parquet(
   other_comp_code_lookup,
-  "tmp/other_comp_code_lookup.parquet"
+  "tmp/other_comp_code_lookup.parquet",
+  compression = "ZSTD"
 )
