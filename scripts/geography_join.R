@@ -1,5 +1,5 @@
 library(tidyverse)
-library(tidylog)
+library(duckplyr)
 library(pointblank)
 
 # --- ZIP → county, state lookup for EOIR respondent geography ---

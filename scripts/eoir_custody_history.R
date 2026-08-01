@@ -1,6 +1,5 @@
 library(tidyverse)
-library(tidylog)
-library(data.table)
+library(duckplyr)
 library(pointblank)
 
 source("scripts/utilities.R")
@@ -67,30 +66,24 @@ custodyhistory_by_case |>
   ) |>
   invisible()
 
-setDT(custodyhistory_by_case)
-
+# Row order within each idncase group is established by the arrange() above
+# (date_detained, idncustody); nth() below relies on that order being
+# preserved through group_by(). nth() returns NA past the end of the group,
+# matching the pad-to-length-4 behavior of the data.table block this replaces.
 custodyhistory_by_case <-
-  custodyhistory_by_case[,
-    {
-      det <- head(date_detained, 4L)
-      rel <- head(date_released, 4L)
-      # Pad to length 4 with NA
-      length(det) <- 4L
-      length(rel) <- 4L
-
-      list(
-        detention_start_1 = det[1L],
-        detention_start_2 = det[2L],
-        detention_start_3 = det[3L],
-        detention_start_4 = det[4L],
-        detention_end_1 = rel[1L],
-        detention_end_2 = rel[2L],
-        detention_end_3 = rel[3L],
-        detention_end_4 = rel[4L]
-      )
-    },
-    by = idncase
-  ]
+  custodyhistory_by_case |>
+  group_by(idncase) |>
+  summarise(
+    detention_start_1 = nth(date_detained, 1),
+    detention_start_2 = nth(date_detained, 2),
+    detention_start_3 = nth(date_detained, 3),
+    detention_start_4 = nth(date_detained, 4),
+    detention_end_1 = nth(date_released, 1),
+    detention_end_2 = nth(date_released, 2),
+    detention_end_3 = nth(date_released, 3),
+    detention_end_4 = nth(date_released, 4),
+    .groups = "drop"
+  )
 
 custodyhistory_by_case |>
   as_tibble() |>

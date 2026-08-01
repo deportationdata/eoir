@@ -1,6 +1,5 @@
 library(tidyverse)
-library(tidylog)
-library(data.table)
+library(duckplyr)
 library(pointblank)
 
 source("scripts/utilities.R")
@@ -118,19 +117,22 @@ charges_tbl <-
 charges_tbl <- charges_tbl |>
   distinct(idncase, idnproceeding, charge_str, .keep_all = TRUE)
 
-setDT(charges_tbl)
+charges_tbl <- charges_tbl |>
+  arrange(idncase, idnproceeding, idnprcdchg)
 
-setorder(charges_tbl, idncase, idnproceeding, idnprcdchg)
-
-charges_by_case <- charges_tbl[,
-  .(
-    charge_section_1 = charge_str[1L],
-    charge_section_2 = charge_str[2L],
-    charge_section_3 = charge_str[3L],
-    charge_section_4 = charge_str[4L]
-  ),
-  by = idncase
-]
+# Row order within each idncase group is established by the arrange() above;
+# nth() below relies on that order being preserved through group_by(), and
+# returns NA past the end of the group (matching out-of-bounds `[1L]` etc.
+# indexing in the data.table block this replaces).
+charges_by_case <- charges_tbl |>
+  group_by(idncase) |>
+  summarise(
+    charge_section_1 = nth(charge_str, 1),
+    charge_section_2 = nth(charge_str, 2),
+    charge_section_3 = nth(charge_str, 3),
+    charge_section_4 = nth(charge_str, 4),
+    .groups = "drop"
+  )
 
 charges_by_case |>
   as_tibble() |>

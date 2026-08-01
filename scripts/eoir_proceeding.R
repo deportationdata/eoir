@@ -1,6 +1,5 @@
 library(tidyverse)
-library(tidylog)
-library(data.table)
+library(duckplyr)
 library(pointblank)
 library(collapse)
 
@@ -174,22 +173,21 @@ proceeding_tbl |>
   ) |>
   invisible()
 
-setDT(proceeding_tbl)
-
-proceeding_tbl[, `:=`(
-  IDNPROCEEDING = as.integer(IDNPROCEEDING),
-  IDNCASE = as.integer(IDNCASE),
-  OSC_DATE = as.IDate(OSC_DATE),
-  INPUT_DATE = as.IDate(INPUT_DATE),
-  TRANS_IN_DATE = as.IDate(TRANS_IN_DATE),
-  HEARING_DATE = as.IDate(HEARING_DATE),
-  COMP_DATE = as.IDate(COMP_DATE),
-  VENUE_CHG_GRANTED = as.IDate(VENUE_CHG_GRANTED),
-  DATE_APPEAL_DUE_STATUS = as.IDate(DATE_APPEAL_DUE_STATUS),
-  AGGRAVATE_FELON = as.logical(AGGRAVATE_FELON),
-  DATE_DETAINED = as.IDate(DATE_DETAINED),
-  DATE_RELEASED = as.IDate(DATE_RELEASED)
-)]
+proceeding_tbl <- proceeding_tbl |>
+  mutate(
+    IDNPROCEEDING = as.integer(IDNPROCEEDING),
+    IDNCASE = as.integer(IDNCASE),
+    OSC_DATE = as.Date(OSC_DATE),
+    INPUT_DATE = as.Date(INPUT_DATE),
+    TRANS_IN_DATE = as.Date(TRANS_IN_DATE),
+    HEARING_DATE = as.Date(HEARING_DATE),
+    COMP_DATE = as.Date(COMP_DATE),
+    VENUE_CHG_GRANTED = as.Date(VENUE_CHG_GRANTED),
+    DATE_APPEAL_DUE_STATUS = as.Date(DATE_APPEAL_DUE_STATUS),
+    AGGRAVATE_FELON = as.logical(AGGRAVATE_FELON),
+    DATE_DETAINED = as.Date(DATE_DETAINED),
+    DATE_RELEASED = as.Date(DATE_RELEASED)
+  )
 
 # TODO:
 # Warning messages:
@@ -249,28 +247,30 @@ cases_from_proceedings <-
 rm(proceeding_tbl)
 gc()
 
-setDT(cases_from_proceedings)
-
+# Row order within each idncase group is established by the arrange() above
+# (comp_date, dec_code, other_comp, idnproceeding); first()/last() below rely
+# on that order being preserved through group_by(), matching the semantics
+# of the data.table by-group collapse this replaces.
 cases_from_proceedings <-
-  cases_from_proceedings[,
-    .(
-      final_completion_date = last(comp_date),
-      nta_date = first(nta_date),
-      first_court_code = first(base_city_code),
-      final_court_code = last(base_city_code),
-      case_type_code = first(case_type_code),
-      dec_code = last(dec_code),
-      other_comp = last(other_comp),
-      in_absentia = last(in_absentia),
-      first_hearing_location_code = first(hearing_loc_code),
-      last_hearing_location_code = last(hearing_loc_code),
-      first_judge_code = first(judge_code),
-      last_judge_code = last(judge_code),
-      deported_1_code = last(deported_1),
-      deported_2_code = last(deported_2)
-    ),
-    by = idncase
-  ]
+  cases_from_proceedings |>
+  group_by(idncase) |>
+  summarise(
+    final_completion_date = last(comp_date),
+    nta_date = first(nta_date),
+    first_court_code = first(base_city_code),
+    final_court_code = last(base_city_code),
+    case_type_code = first(case_type_code),
+    dec_code = last(dec_code),
+    other_comp = last(other_comp),
+    in_absentia = last(in_absentia),
+    first_hearing_location_code = first(hearing_loc_code),
+    last_hearing_location_code = last(hearing_loc_code),
+    first_judge_code = first(judge_code),
+    last_judge_code = last(judge_code),
+    deported_1_code = last(deported_1),
+    deported_2_code = last(deported_2),
+    .groups = "drop"
+  )
 
 # Validate collapsed case-level dataset
 cases_from_proceedings |>

@@ -1,6 +1,5 @@
 library(tidyverse)
-library(tidylog)
-library(data.table)
+library(duckplyr)
 library(pointblank)
 
 source("scripts/utilities.R")
@@ -75,8 +74,6 @@ court_applications_tbl <-
   court_applications_tbl |>
   janitor::clean_names()
 
-setDT(court_applications_tbl)
-
 # Substantive decisions outrank administrative dispositions
 # when applications of the same type are received the same day
 DEC_PRIORITY <- c(
@@ -96,36 +93,40 @@ DEC_PRIORITY <- c(
   "M" # NOT ADJUDICATED
 )
 
-court_applications_tbl[,
-  dec_rank := fcoalesce(match(appl_dec, rev(DEC_PRIORITY)), 0L)
-]
-court_applications_tbl[, appl_recd_day := as.Date(appl_recd_date)]
-setorder(
-  court_applications_tbl,
-  idncase,
-  appl_recd_day,
-  dec_rank,
-  appl_recd_date,
-  idnproceedingappln,
-  na.last = FALSE
-)
+court_applications_tbl <- court_applications_tbl |>
+  mutate(
+    dec_rank = coalesce(match(appl_dec, rev(DEC_PRIORITY)), 0L),
+    appl_recd_day = as.Date(appl_recd_date)
+  ) |>
+  # na.last = FALSE: rows with no appl_recd_day sort first within each case,
+  # so they're never mistaken for the most recent decision by last() below
+  arrange(
+    idncase,
+    desc(is.na(appl_recd_day)),
+    appl_recd_day,
+    dec_rank,
+    appl_recd_date,
+    idnproceedingappln
+  )
 
+# Row order within each idncase group is established by the arrange() above;
+# last() below relies on that order being preserved through group_by().
 court_applications_by_case <-
-  court_applications_tbl[,
-    .(
-      asylum_decision_last = dplyr::last(appl_dec[appl_code %in% "ASYL"]),
-      withholding_decision_last = dplyr::last(appl_dec[appl_code %in% "ASYW"]),
-      cat_decision_last = dplyr::last(appl_dec[appl_code %in% "WCAT"]),
-      adjustment_decision_last = dplyr::last(appl_dec[appl_code %in% "245"]),
-      non_lpr_cancellation_decision_last = dplyr::last(appl_dec[
-        appl_code %in% "42B"
-      ]),
-      lpr_cancellation_decision_last = dplyr::last(appl_dec[
-        appl_code %in% "42A"
-      ])
-    ),
-    by = idncase
-  ] |>
+  court_applications_tbl |>
+  group_by(idncase) |>
+  summarise(
+    asylum_decision_last = dplyr::last(appl_dec[appl_code %in% "ASYL"]),
+    withholding_decision_last = dplyr::last(appl_dec[appl_code %in% "ASYW"]),
+    cat_decision_last = dplyr::last(appl_dec[appl_code %in% "WCAT"]),
+    adjustment_decision_last = dplyr::last(appl_dec[appl_code %in% "245"]),
+    non_lpr_cancellation_decision_last = dplyr::last(appl_dec[
+      appl_code %in% "42B"
+    ]),
+    lpr_cancellation_decision_last = dplyr::last(appl_dec[
+      appl_code %in% "42A"
+    ]),
+    .groups = "drop"
+  ) |>
   filter(!is.na(idncase)) |>
   mutate(
     across(
