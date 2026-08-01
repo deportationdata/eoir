@@ -1,4 +1,5 @@
 library(tidyverse)
+library(duckplyr)
 
 cases <- arrow::read_parquet("data/cases.parquet")
 

@@ -1,6 +1,5 @@
 library(tidyverse)
-library(tidylog)
-library(data.table)
+library(duckplyr)
 library(pointblank)
 
 source("scripts/utilities.R")
@@ -175,40 +174,41 @@ associated_bond_tbl |>
   ) |>
   invisible()
 
-setDT(associated_bond_tbl)
-
+# Row order within each idncase group is established by the arrange() above
+# (bond_completion_date, bond_hearing_request_date, idnassocbond); first()/
+# nth()/last() below rely on that order being preserved through group_by().
 associated_bond_by_case <-
-  associated_bond_tbl[,
-    .(
-      bond_completion_date_first = first(bond_completion_date),
-      bond_court_code_first = first(base_city_code),
-      bond_judge_code_first = first(ij_code),
-      hearing_location_code_first = first(hearing_location_code),
-      bond_hearing_request_date_first = first(bond_hearing_request_date),
-      bond_decision_first = first(bond_decision),
-      initial_bond_amount_first = first(initial_bond_amount),
-      new_bond_amount_first = first(new_bond_amount),
+  associated_bond_tbl |>
+  group_by(idncase) |>
+  summarise(
+    bond_completion_date_first = first(bond_completion_date),
+    bond_court_code_first = first(base_city_code),
+    bond_judge_code_first = first(ij_code),
+    hearing_location_code_first = first(hearing_location_code),
+    bond_hearing_request_date_first = first(bond_hearing_request_date),
+    bond_decision_first = first(bond_decision),
+    initial_bond_amount_first = first(initial_bond_amount),
+    new_bond_amount_first = first(new_bond_amount),
 
-      bond_completion_date_second = bond_completion_date[2],
-      bond_court_code_second = base_city_code[2],
-      bond_judge_code_second = ij_code[2],
-      hearing_location_code_second = hearing_location_code[2],
-      bond_hearing_request_date_second = bond_hearing_request_date[2],
-      bond_decision_second = bond_decision[2],
-      initial_bond_amount_second = initial_bond_amount[2],
-      new_bond_amount_second = new_bond_amount[2],
+    bond_completion_date_second = nth(bond_completion_date, 2),
+    bond_court_code_second = nth(base_city_code, 2),
+    bond_judge_code_second = nth(ij_code, 2),
+    hearing_location_code_second = nth(hearing_location_code, 2),
+    bond_hearing_request_date_second = nth(bond_hearing_request_date, 2),
+    bond_decision_second = nth(bond_decision, 2),
+    initial_bond_amount_second = nth(initial_bond_amount, 2),
+    new_bond_amount_second = nth(new_bond_amount, 2),
 
-      bond_completion_date_last = last(bond_completion_date),
-      bond_court_code_last = last(base_city_code),
-      bond_judge_code_last = last(ij_code),
-      hearing_location_code_last = last(hearing_location_code),
-      bond_hearing_request_date_last = last(bond_hearing_request_date),
-      bond_decision_last = last(bond_decision),
-      initial_bond_amount_last = last(initial_bond_amount),
-      new_bond_amount_last = last(new_bond_amount)
-    ),
-    by = idncase
-  ] |>
+    bond_completion_date_last = last(bond_completion_date),
+    bond_court_code_last = last(base_city_code),
+    bond_judge_code_last = last(ij_code),
+    hearing_location_code_last = last(hearing_location_code),
+    bond_hearing_request_date_last = last(bond_hearing_request_date),
+    bond_decision_last = last(bond_decision),
+    initial_bond_amount_last = last(initial_bond_amount),
+    new_bond_amount_last = last(new_bond_amount),
+    .groups = "drop"
+  ) |>
   mutate(
     across(
       c(bond_decision_first, bond_decision_second, bond_decision_last),

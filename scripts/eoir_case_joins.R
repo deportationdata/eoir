@@ -1,5 +1,5 @@
 library(tidyverse)
-library(tidylog)
+library(duckplyr)
 library(pointblank)
 
 source("scripts/utilities.R")
@@ -683,14 +683,6 @@ cases |>
   ) |>
   invisible()
 
-make_abbr_caps <- function(x, abbr) {
-  for (a in abbr) {
-    pattern <- if (str_detect(a, "/")) a else paste0("\\b", a, "\\b")
-    x <- str_replace_all(x, regex(pattern, ignore_case = TRUE), a)
-  }
-  x
-}
-
 cases <-
   cases |>
   mutate(
@@ -704,7 +696,7 @@ cases <-
         !contains("fips") &
         !contains("state"),
       ~ str_to_title(.x) |>
-        make_abbr_caps(
+        str_fix_abbreviations(
           abbr = c(
             "ABC",
             "BIA",

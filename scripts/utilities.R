@@ -3,7 +3,7 @@
 
 library(data.table)
 library(stringr)
-library(dplyr)
+library(duckplyr)
 library(readr)
 library(pointblank)
 
@@ -113,6 +113,22 @@ clean_eoir_cols <- function(df) {
       where(is.character),
       ~ if_else(.x %in% na_vals | .x == "", NA_character_, .x)
     ))
+}
+
+#' Fix known abbreviations back to their canonical uppercase form after
+#' str_to_title() has title-cased them (e.g. "Bia" -> "BIA", "Ij" -> "IJ").
+#' Applies all abbreviations in a single vectorized regex pass (via stringi's
+#' parallel pattern/replacement matching) instead of one str_replace_all()
+#' pass per abbreviation — same output, dramatically faster on large tables.
+str_fix_abbreviations <- function(x, abbr) {
+  pat <- ifelse(grepl("/", abbr, fixed = TRUE), abbr, paste0("\\b", abbr, "\\b"))
+  stringi::stri_replace_all_regex(
+    x,
+    pat,
+    abbr,
+    opts_regex = stringi::stri_opts_regex(case_insensitive = TRUE),
+    vectorize_all = FALSE
+  )
 }
 
 #' Build a shift finder that detects mid-row column shifts by looking for
