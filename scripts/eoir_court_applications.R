@@ -110,10 +110,12 @@ court_applications_tbl <- court_applications_tbl |>
   )
 
 # Row order within each idncase group is established by the arrange() above;
-# last() below relies on that order being preserved through group_by().
+# last() below relies on that order. Use `.by =` rather than group_by():
+# duckplyr cannot execute group_by() and silently falls back to plain dplyr,
+# losing the speedup. arrange() afterwards because `.by =` returns groups in
+# hash order.
 court_applications_by_case <-
   court_applications_tbl |>
-  group_by(idncase) |>
   summarise(
     asylum_decision_last = dplyr::last(appl_dec[appl_code %in% "ASYL"]),
     withholding_decision_last = dplyr::last(appl_dec[appl_code %in% "ASYW"]),
@@ -125,8 +127,9 @@ court_applications_by_case <-
     lpr_cancellation_decision_last = dplyr::last(appl_dec[
       appl_code %in% "42A"
     ]),
-    .groups = "drop"
+    .by = idncase
   ) |>
+  arrange(idncase) |>
   filter(!is.na(idncase)) |>
   mutate(
     across(

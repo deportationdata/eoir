@@ -136,10 +136,11 @@ appeals_tbl |>
 
 # Row order within each idncase group is established by the arrange() above
 # (bia_decision_date, appeal_filed_date, idn_appeal); last() below relies on
-# that order being preserved through group_by().
+# that order. Use `.by =` rather than group_by(): duckplyr cannot execute
+# group_by() and silently falls back to plain dplyr, losing the speedup.
+# arrange() afterwards because `.by =` returns groups in hash order.
 appeals_by_case <-
   appeals_tbl |>
-  group_by(idncase) |>
   summarise(
     bia_decision = last(bia_decision),
     bia_decision_type_code = last(bia_decision_type_code),
@@ -151,8 +152,9 @@ appeals_by_case <-
     bia_decision_date = last(bia_decision_date),
     appeal_filed_date = last(appeal_filed_date),
     # pending_appeal = any(is.na(bia_decision_date) & !is.na(appeal_filed_date))
-    .groups = "drop"
-  )
+    .by = idncase
+  ) |>
+  arrange(idncase)
 
 appeals_by_case |>
   as_tibble() |>

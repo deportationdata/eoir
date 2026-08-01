@@ -176,10 +176,12 @@ associated_bond_tbl |>
 
 # Row order within each idncase group is established by the arrange() above
 # (bond_completion_date, bond_hearing_request_date, idnassocbond); first()/
-# nth()/last() below rely on that order being preserved through group_by().
+# nth()/last() below rely on that order. Use `.by =` rather than group_by():
+# duckplyr cannot execute group_by() and silently falls back to plain dplyr,
+# losing the speedup. arrange() afterwards because `.by =` returns groups in
+# hash order.
 associated_bond_by_case <-
   associated_bond_tbl |>
-  group_by(idncase) |>
   summarise(
     bond_completion_date_first = first(bond_completion_date),
     bond_court_code_first = first(base_city_code),
@@ -207,8 +209,9 @@ associated_bond_by_case <-
     bond_decision_last = last(bond_decision),
     initial_bond_amount_last = last(initial_bond_amount),
     new_bond_amount_last = last(new_bond_amount),
-    .groups = "drop"
+    .by = idncase
   ) |>
+  arrange(idncase) |>
   mutate(
     across(
       c(bond_decision_first, bond_decision_second, bond_decision_last),

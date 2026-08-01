@@ -249,11 +249,12 @@ gc()
 
 # Row order within each idncase group is established by the arrange() above
 # (comp_date, dec_code, other_comp, idnproceeding); first()/last() below rely
-# on that order being preserved through group_by(), matching the semantics
-# of the data.table by-group collapse this replaces.
+# on that order, matching the data.table by-group collapse this replaces.
+# Use `.by =` rather than group_by(): duckplyr cannot execute group_by() and
+# silently falls back to plain dplyr, which loses the whole speedup.
+# arrange() afterwards because `.by =` returns groups in hash order.
 cases_from_proceedings <-
   cases_from_proceedings |>
-  group_by(idncase) |>
   summarise(
     final_completion_date = last(comp_date),
     nta_date = first(nta_date),
@@ -269,8 +270,9 @@ cases_from_proceedings <-
     last_judge_code = last(judge_code),
     deported_1_code = last(deported_1),
     deported_2_code = last(deported_2),
-    .groups = "drop"
-  )
+    .by = idncase
+  ) |>
+  arrange(idncase)
 
 # Validate collapsed case-level dataset
 cases_from_proceedings |>

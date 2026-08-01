@@ -67,12 +67,13 @@ custodyhistory_by_case |>
   invisible()
 
 # Row order within each idncase group is established by the arrange() above
-# (date_detained, idncustody); nth() below relies on that order being
-# preserved through group_by(). nth() returns NA past the end of the group,
-# matching the pad-to-length-4 behavior of the data.table block this replaces.
+# (date_detained, idncustody); nth() below relies on that order. nth() returns
+# NA past the end of the group, matching the pad-to-length-4 behavior of the
+# data.table block this replaces. Use `.by =` rather than group_by(): duckplyr
+# cannot execute group_by() and silently falls back to plain dplyr, losing the
+# speedup. arrange() afterwards because `.by =` returns groups in hash order.
 custodyhistory_by_case <-
   custodyhistory_by_case |>
-  group_by(idncase) |>
   summarise(
     detention_start_1 = nth(date_detained, 1),
     detention_start_2 = nth(date_detained, 2),
@@ -82,8 +83,9 @@ custodyhistory_by_case <-
     detention_end_2 = nth(date_released, 2),
     detention_end_3 = nth(date_released, 3),
     detention_end_4 = nth(date_released, 4),
-    .groups = "drop"
-  )
+    .by = idncase
+  ) |>
+  arrange(idncase)
 
 custodyhistory_by_case |>
   as_tibble() |>
