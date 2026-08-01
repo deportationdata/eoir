@@ -67,6 +67,13 @@ jobs:
           DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
         run: Rscript tests/test_duckplyr_no_fallback.R
 
+      # clean_eoir_cols() repairs only the cells that need it rather than every
+      # cell, so its output is pinned against the straightforward version.
+      - name: Check clean_eoir_cols semantics are unchanged
+        env:
+          DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
+        run: Rscript tests/test_clean_eoir_cols.R
+
       - name: Download data
         env:
           DOWNLOAD_URL: ${{ inputs.download_url || 'https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip' }}
