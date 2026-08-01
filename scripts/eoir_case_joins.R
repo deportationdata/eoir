@@ -18,7 +18,11 @@ read_tmp <- function(path) {
 }
 
 # Row count answered by DuckDB. nrow() would pull the whole frame into R.
-n_rows <- function(x) dplyr::pull(dplyr::count(x), n)
+# The count column is named explicitly so it cannot be confused with a data
+# column of the frame being counted.
+n_rows <- function(x) {
+  dplyr::pull(dplyr::count(x, name = "..n_rows"), "..n_rows")
+}
 
 tblLanguage <- read_eoir_lookup("inputs_eoir/tblLanguage.csv")
 tblLookup_CasePriority <- read_eoir_lookup(
