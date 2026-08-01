@@ -29,6 +29,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/**'
+      - 'tests/**'
       - 'inputs/**'
       - 'renv.lock'
       - '.github/workflows/clean_release_data.yaml'
@@ -57,6 +58,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libnode-dev
 
       - uses: r-lib/actions/setup-renv@v2
+
+      # Fails if a hot-path verb stops executing inside DuckDB. duckplyr falls
+      # back to plain dplyr silently, so a regression here costs the whole
+      # speedup without producing a wrong answer or any visible error.
+      - name: Check duckplyr is not falling back
+        env:
+          DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
+        run: Rscript tests/test_duckplyr_no_fallback.R
 
       - name: Download data
         env:
