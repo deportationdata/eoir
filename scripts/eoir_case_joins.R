@@ -4,6 +4,22 @@ library(pointblank)
 
 source("scripts/utilities.R")
 
+# Read the intermediates as duckplyr frames rather than eagerly via arrow, so
+# the join chain below runs inside DuckDB with column pushdown instead of
+# materializing every file into R first (measured ~3.6x on a 3M-row fact table
+# joined to 10 intermediates). `prudence` must be given explicitly: the
+# read_*_duckdb() default is "thrifty", which refuses to materialize anything
+# over 1e6 cells, and these tables are far larger than that.
+#
+# Note that nrow() and `$` on a duckplyr frame both force materialization, so
+# the row-count checks below use count() and summarise() instead.
+read_tmp <- function(path) {
+  duckplyr::read_parquet_duckdb(path, prudence = "lavish")
+}
+
+# Row count answered by DuckDB. nrow() would pull the whole frame into R.
+n_rows <- function(x) dplyr::pull(dplyr::count(x), n)
+
 tblLanguage <- read_eoir_lookup("inputs_eoir/tblLanguage.csv")
 tblLookup_CasePriority <- read_eoir_lookup(
   "inputs_eoir/tblLookup_CasePriority.csv"
@@ -22,10 +38,10 @@ tblLookupCaseType <- read_eoir_lookup("inputs_eoir/tblLookupCaseType.csv")
 tblLookupSex <- read_eoir_lookup("inputs_eoir/tblLookupSex.csv")
 
 cases <-
-  arrow::read_parquet("tmp/cases_from_proceedings.parquet")
+  read_tmp("tmp/cases_from_proceedings.parquet")
 
 custodyhistory_by_case <-
-  arrow::read_parquet("tmp/custodyhistory_cases.parquet")
+  read_tmp("tmp/custodyhistory_cases.parquet")
 
 cases <-
   cases |>
@@ -34,7 +50,7 @@ cases <-
 rm(custodyhistory_by_case)
 gc()
 
-case_tbl <- arrow::read_parquet("tmp/cases_tmp.parquet")
+case_tbl <- read_tmp("tmp/cases_tmp.parquet")
 
 case_tbl <-
   case_tbl |>
@@ -43,33 +59,35 @@ case_tbl <-
     !any_of(colnames(cases))
   )
 
-n_before_case <- nrow(cases)
+n_before_case <- n_rows(cases)
 
 cases <-
   cases |>
   inner_join(case_tbl, by = "idncase")
 
+n_after_case <- n_rows(cases)
+
 message(sprintf(
   "inner_join with case table: %d -> %d rows (%d dropped)",
   n_before_case,
-  nrow(cases),
-  n_before_case - nrow(cases)
+  n_after_case,
+  n_before_case - n_after_case
 ))
 
 # Inner join should not drop more than 1% of cases
-if (nrow(cases) < n_before_case * 0.99) {
+if (n_after_case < n_before_case * 0.99) {
   warning(sprintf(
     "inner_join with case table dropped %.1f%% of rows",
-    (1 - nrow(cases) / n_before_case) * 100
+    (1 - n_after_case / n_before_case) * 100
   ))
 }
 
 rm(case_tbl)
 gc()
 
-zip_lookup <- arrow::read_parquet("tmp/zip_lookup.parquet")
+zip_lookup <- read_tmp("tmp/zip_lookup.parquet")
 
-n_before_zip <- nrow(cases)
+n_before_zip <- n_rows(cases)
 
 cases <- cases |>
   left_join(
@@ -104,7 +122,7 @@ cases |>
   invisible()
 
 appeals_by_case <-
-  arrow::read_parquet("tmp/appeals_cases.parquet")
+  read_tmp("tmp/appeals_cases.parquet")
 
 cases <-
   cases |>
@@ -114,12 +132,19 @@ rm(appeals_by_case)
 gc()
 
 # replace final_completion_date with bia_decision_date if BIA decided later
-n_bia_override <- sum(
-  !is.na(cases$bia_decision_date) &
-    (is.na(cases$final_completion_date) |
-      cases$bia_decision_date > cases$final_completion_date),
-  na.rm = TRUE
-)
+# (counted with summarise() rather than `cases$...`, which would pull all three
+# columns into R and materialize the frame)
+n_bia_override <-
+  cases |>
+  summarise(
+    n = sum(
+      !is.na(bia_decision_date) &
+        (is.na(final_completion_date) |
+          bia_decision_date > final_completion_date),
+      na.rm = TRUE
+    )
+  ) |>
+  pull(n)
 message(sprintf(
   "final_completion_date overridden by bia_decision_date for %d cases",
   n_bia_override
@@ -140,7 +165,7 @@ cases <-
   )
 
 court_applications_by_case <-
-  arrow::read_parquet("tmp/court_applications_cases.parquet")
+  read_tmp("tmp/court_applications_cases.parquet")
 
 cases <-
   cases |>
@@ -150,7 +175,7 @@ rm(court_applications_by_case)
 gc()
 
 associated_bond_by_case <-
-  arrow::read_parquet("tmp/associated_bond_cases.parquet")
+  read_tmp("tmp/associated_bond_cases.parquet")
 
 cases <-
   cases |>
@@ -210,7 +235,7 @@ cases <-
 rm(associated_bond_by_case)
 gc()
 
-charges_by_case <- arrow::read_parquet("tmp/charges_cases.parquet")
+charges_by_case <- read_tmp("tmp/charges_cases.parquet")
 
 cases <-
   cases |>
@@ -220,10 +245,10 @@ rm(charges_by_case)
 gc()
 
 other_comp_code_lookup <-
-  arrow::read_parquet("tmp/other_comp_code_lookup.parquet")
+  read_tmp("tmp/other_comp_code_lookup.parquet")
 
 dec_code_lookup <-
-  arrow::read_parquet("tmp/dec_code_lookup.parquet")
+  read_tmp("tmp/dec_code_lookup.parquet")
 
 cases <-
   cases |>
@@ -944,7 +969,11 @@ cases <-
     # * 2. withholding-only proceedings (WHO)
     case_type_code %in% c("RMV", "WHO")
   ) |>
-  select(-case_type_code, -case_type)
+  select(-case_type_code, -case_type) |>
+  # DuckDB does not guarantee output row order and its joins reorder rows, so
+  # sort explicitly: the released file should be byte-stable between runs
+  # rather than reshuffling on every rebuild.
+  arrange(idncase)
 
 arrow::write_parquet(
   cases,
