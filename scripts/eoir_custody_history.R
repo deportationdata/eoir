@@ -57,10 +57,7 @@ custodyhistory_by_case <-
     date_released = datreleased
   ) |>
   arrange(idncase, date_detained, idncustody) |>
-  # Freeze the sort order into a column: DuckDB does not guarantee a GROUP BY
-  # feeds rows to an aggregate in input order, so nth() below is told the
-  # order explicitly via order_by = row_order. See scripts/eoir_proceeding.R
-  # for the full note.
+  # sort order frozen into a column for the collapse below to order by
   mutate(row_order = row_number())
 
 # Validate date ordering (detained should precede release)
@@ -71,13 +68,8 @@ custodyhistory_by_case |>
   ) |>
   invisible()
 
-# Row order within each idncase group is established by the arrange() above
-# (date_detained, idncustody) and passed to each aggregate via
-# order_by = row_order. nth() returns NA past the end of the group, matching
-# the pad-to-length-4 behavior of the data.table block this replaces. Use
-# `.by =` rather than group_by(): duckplyr cannot execute group_by() and
-# silently falls back to plain dplyr, losing the speedup. arrange() afterwards
-# because `.by =` returns groups in hash order.
+# nth() returns NA past the end of a group, matching the pad-to-length-4
+# behavior of the data.table block this replaces.
 custodyhistory_by_case <-
   custodyhistory_by_case |>
   summarise(

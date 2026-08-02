@@ -159,10 +159,7 @@ associated_bond_tbl <-
     bond_hearing_request_date,
     idnassocbond
   ) |>
-  # Freeze the sort order into a column: DuckDB does not guarantee a GROUP BY
-  # feeds rows to an aggregate in input order, so first()/nth()/last() below
-  # are told the order explicitly via order_by = row_order. See
-  # scripts/eoir_proceeding.R for the full note.
+  # sort order frozen into a column for the collapse below to order by
   mutate(row_order = row_number())
 
 # Post-transform validation
@@ -179,12 +176,6 @@ associated_bond_tbl |>
   ) |>
   invisible()
 
-# Row order within each idncase group is established by the arrange() above
-# (bond_completion_date, bond_hearing_request_date, idnassocbond) and passed
-# to each aggregate via order_by = row_order. Use `.by =` rather than
-# group_by(): duckplyr cannot execute group_by() and silently falls back to
-# plain dplyr, losing the speedup. arrange() afterwards because `.by =`
-# returns groups in hash order.
 associated_bond_by_case <-
   associated_bond_tbl |>
   summarise(

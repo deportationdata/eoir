@@ -108,29 +108,19 @@ court_applications_tbl <- court_applications_tbl |>
     appl_recd_date,
     idnproceedingappln
   ) |>
-  # Freeze the sort order into a column: DuckDB does not guarantee a GROUP BY
-  # feeds rows to an aggregate in input order, so last() below is told the
-  # order explicitly via order_by = row_order. Doing it this way also sidesteps
-  # order_by= being unable to express the desc() term above. See
-  # scripts/eoir_proceeding.R for the full note.
+  # sort order frozen into a column for the collapse below to order by; it
+  # also carries the desc() term, which order_by= alone cannot express
   mutate(row_order = row_number())
 
 #' Most recent decision for a single application type, one row per case.
 #'
-#' This was previously a single summarise() holding six
-#' `dplyr::last(appl_dec[appl_code %in% "..."])` expressions. DuckDB has no
-#' translation for `[`, so duckplyr fell back to dplyr and evaluated the
-#' subset once per case in R — about 15 minutes on the full 16.1M-row table,
-#' which was the single largest cost in the pipeline. Filtering to one
-#' application type first leaves a plain last() that DuckDB can execute,
-#' which is ~400x faster for identical output.
+#' Filtering to one application type first, rather than subsetting inside one
+#' grouped `last(appl_dec[appl_code %in% ...])`, is what makes this cheap: the
+#' subset form cost about 15 minutes on the full 16.1M-row table.
 #'
-#' Row order within each case is established by the arrange() above and passed
-#' to last() explicitly via order_by = row_order, because DuckDB does not
-#' guarantee that a GROUP BY feeds rows to an aggregate in input order. A case
-#' with no application of a given type has no row here at all, so the
-#' left_join below leaves NA — the same answer dplyr::last() gave when handed
-#' the empty vector it used to produce.
+#' A case with no application of a given type has no row here at all, so the
+#' left_join below leaves NA — the same answer the subset form gave when
+#' handed the empty vector it used to produce.
 last_decision_for <- function(appl_code_value, column_name) {
   court_applications_tbl |>
     filter(appl_code %in% appl_code_value) |>

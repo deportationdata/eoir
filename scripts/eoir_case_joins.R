@@ -4,22 +4,16 @@ library(pointblank)
 
 source("scripts/utilities.R")
 
-# Read the intermediates as duckplyr frames rather than eagerly via arrow, so
-# the join chain below runs inside DuckDB with column pushdown instead of
-# materializing every file into R first (measured ~3.6x on a 3M-row fact table
-# joined to 10 intermediates). `prudence` must be given explicitly: the
-# read_*_duckdb() default is "thrifty", which refuses to materialize anything
-# over 1e6 cells, and these tables are far larger than that.
-#
-# Note that nrow() and `$` on a duckplyr frame both force materialization, so
-# the row-count checks below use count() and summarise() instead.
+# Read the intermediates lazily rather than eagerly via arrow, so the join
+# chain below can push column selection down into the files instead of pulling
+# every one into R first (measured ~3.6x). `prudence` must be given: the
+# default refuses to materialize anything over 1e6 cells.
 read_tmp <- function(path) {
   duckplyr::read_parquet_duckdb(path, prudence = "lavish")
 }
 
-# Row count answered by DuckDB. nrow() would pull the whole frame into R.
-# The count column is named explicitly so it cannot be confused with a data
-# column of the frame being counted.
+# nrow() on a lazy frame would pull the whole thing into R; count() does not.
+# The count column is named explicitly so it cannot collide with a data column.
 n_rows <- function(x) {
   dplyr::pull(dplyr::count(x, name = "..n_rows"), "..n_rows")
 }
@@ -974,9 +968,8 @@ cases <-
     case_type_code %in% c("RMV", "WHO")
   ) |>
   select(-case_type_code, -case_type) |>
-  # DuckDB does not guarantee output row order and its joins reorder rows, so
-  # sort explicitly: the released file should be byte-stable between runs
-  # rather than reshuffling on every rebuild.
+  # joins reorder rows, so sort explicitly: the released file should be
+  # byte-stable between runs rather than reshuffling on every rebuild
   arrange(idncase)
 
 arrow::write_parquet(

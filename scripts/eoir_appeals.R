@@ -121,10 +121,7 @@ appeals_tbl <-
     custody_at_appeal_code = str_custody
   ) |>
   arrange(idncase, bia_decision_date, appeal_filed_date, idn_appeal) |>
-  # Freeze the sort order into a column: DuckDB does not guarantee a GROUP BY
-  # feeds rows to an aggregate in input order, so last() below is told the
-  # order explicitly via order_by = row_order. See scripts/eoir_proceeding.R
-  # for the full note.
+  # sort order frozen into a column for the collapse below to order by
   mutate(row_order = row_number())
 
 # Validate date ordering (appeal filed before decision)
@@ -139,12 +136,6 @@ appeals_tbl |>
   ) |>
   invisible()
 
-# Row order within each idncase group is established by the arrange() above
-# (bia_decision_date, appeal_filed_date, idn_appeal) and passed to each
-# aggregate via order_by = row_order. Use `.by =` rather than group_by():
-# duckplyr cannot execute group_by() and silently falls back to plain dplyr,
-# losing the speedup. arrange() afterwards because `.by =` returns groups in
-# hash order.
 appeals_by_case <-
   appeals_tbl |>
   summarise(

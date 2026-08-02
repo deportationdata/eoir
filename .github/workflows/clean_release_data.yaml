@@ -107,6 +107,20 @@ jobs:
 
       - name: Process data
         run: |
+          # Three consecutive runs died inside eoir_proceeding.R with "The
+          # runner has received a shutdown signal" and no R error, which is
+          # what a runner looks like when the VM is killed out from under it.
+          # Print memory and disk alongside the pipeline so the last line
+          # before any such kill says which resource ran out.
+          # Bounded so a failed trap can never leave the step waiting on it.
+          ( for _ in $(seq 720); do
+              free -m | awk '/^Mem:/ {printf "[resources] mem %s/%s MB used", $3, $2}'
+              df -BM --output=avail . | tail -1 | awk '{printf ", disk %s avail\n", $1}'
+              sleep 20
+            done ) &
+          monitor_pid=$!
+          trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
+
           set -x
           mkdir -p data
           Rscript scripts/geography_join.R

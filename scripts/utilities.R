@@ -15,6 +15,59 @@ library(pointblank)
 
 na_vals <- c("")
 
+#' Keep DuckDB from competing with R for the last of the machine's memory.
+#'
+#' DuckDB sizes its own budget at 80% of total system RAM and has no idea that
+#' the R session driving it is holding the same tables at the same time. On
+#' B_TblProceeding (16.6M rows) the two together exhausted the CI runner and the
+#' VM was killed mid-job — the job log ends at "The runner has received a
+#' shutdown signal" with no R error, because nothing in R got the chance to
+#' raise one.
+#'
+#' So give DuckDB a fixed share and somewhere to spill. An in-memory DuckDB
+#' database does not page to disk at all unless `temp_directory` is set: without
+#' it, hitting the limit is a hard error rather than a slower query.
+configure_duckdb_memory <- function(fraction = 0.5, temp_dir = "tmp/duckdb") {
+  meminfo <- tryCatch(readLines("/proc/meminfo"), error = function(e) NULL)
+  total_line <- grep("^MemTotal:", meminfo, value = TRUE)
+
+  if (length(total_line) == 1L) {
+    total_gb <- as.numeric(sub("\\D*(\\d+).*", "\\1", total_line)) / 1024^2
+    limit_gb <- max(1, floor(fraction * total_gb))
+    db_exec(sprintf("SET memory_limit = '%dGB'", limit_gb))
+    message(sprintf(
+      "duckdb: memory_limit %dGB of %.0fGB total, spilling to %s",
+      limit_gb,
+      total_gb,
+      temp_dir
+    ))
+  }
+
+  dir.create(temp_dir, recursive = TRUE, showWarnings = FALSE)
+  db_exec(sprintf("SET temp_directory = '%s'", temp_dir))
+}
+
+configure_duckdb_memory()
+
+#' Announce which block of a script is running, with the resident size of the
+#' R session. The workflow prints machine-wide memory alongside this, so
+#' between the two a run that dies without an R error still says where and on
+#' what.
+log_step <- function(label) {
+  rss_mb <- tryCatch(
+    {
+      status <- readLines(sprintf("/proc/%d/status", Sys.getpid()))
+      as.numeric(sub("\\D*(\\d+).*", "\\1", grep("^VmRSS:", status, value = TRUE))) / 1024
+    },
+    error = function(e) NA_real_
+  )
+  message(sprintf(
+    "[step] %s (R rss %s MB)",
+    label,
+    if (length(rss_mb) == 1L && !is.na(rss_mb)) format(round(rss_mb)) else "?"
+  ))
+}
+
 #' Read an EOIR TSV file with standardized parameters and row-count validation.
 #' Returns a data.table.
 read_eoir_tsv <- function(file) {
@@ -150,9 +203,19 @@ clean_eoir_cols <- function(df) {
     x
   }
 
-  out <- df |>
-    mutate(across(where(is.character), repair)) |>
-    select(-matches("^V\\d+$"))
+  # Column-at-a-time assignment rather than mutate(across()) + select().
+  # On B_TblProceeding (16.6M rows x 40 all-character columns) across() holds
+  # every repaired column alongside every original one before assigning, so
+  # peak memory is two full copies of the table; the loop keeps one column in
+  # flight and lets the previous original be collected. Dropping the overflow
+  # columns by name likewise avoids handing the whole table to DuckDB and
+  # reading it back just to remove a few columns.
+  out <- df[, !grepl("^V\\d+$", names(df)), drop = FALSE]
+  for (nm in names(out)) {
+    if (is.character(out[[nm]])) {
+      out[[nm]] <- repair(out[[nm]])
+    }
+  }
 
   if (n_seen > 0L) {
     message(sprintf(

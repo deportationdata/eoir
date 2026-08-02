@@ -45,6 +45,7 @@ lkp_case_type <- read_eoir_lookup("inputs_eoir/tblLookupCaseType.csv")
 lkp_custody <- read_eoir_lookup("inputs_eoir/tblLookupCustodyStatus.csv")
 
 # Validate that shift-fixing didn't corrupt key columns
+log_step("proceeding: pre-transform validation")
 proceeding_tbl |>
   col_vals_not_null(
     IDNPROCEEDING,
@@ -172,6 +173,7 @@ proceeding_tbl |>
   ) |>
   invisible()
 
+log_step("proceeding: type conversion")
 proceeding_tbl <- proceeding_tbl |>
   mutate(
     IDNPROCEEDING = as.integer(IDNPROCEEDING),
@@ -199,7 +201,7 @@ proceeding_tbl <- proceeding_tbl |>
 # Check that date columns parsed without excessive failures
 # chec k_parse(proceeding_tbl)
 
-# Post-type-convert validation
+log_step("proceeding: post-transform validation")
 proceeding_tbl |>
   col_vals_expr(
     expr(is.na(OSC_DATE) | is.na(COMP_DATE) | OSC_DATE <= COMP_DATE),
@@ -215,6 +217,7 @@ proceeding_tbl |>
   ) |>
   invisible()
 
+log_step("proceeding: select and recode")
 cases_from_proceedings <-
   proceeding_tbl |>
   janitor::clean_names() |>
@@ -224,10 +227,26 @@ cases_from_proceedings <-
     case_type_code = case_type,
     judge_code = ij_code
   ) |>
+  # Only these 13 of the table's 40 columns are sorted on or collapsed below.
+  # Carrying the other 27 through the sort roughly triples what DuckDB has to
+  # hold, on the largest table in the pipeline.
+  select(
+    idncase,
+    idnproceeding,
+    comp_date,
+    nta_date,
+    base_city_code,
+    case_type_code,
+    dec_code,
+    other_comp,
+    in_absentia,
+    hearing_loc_code,
+    judge_code,
+    deported_1,
+    deported_2
+  ) |>
   # clean up in_absentia column which has erroneous values due to csv errors
   # assumes missing values, date errors, and "X", "DEP", and "5" values are not absentia
-  # (plain boolean rather than case_when(): duckplyr translates is.na()/&/== to
-  # DuckDB but falls back to dplyr on case_when())
   mutate(
     in_absentia = !is.na(in_absentia) & in_absentia == "Y"
   ) |>
@@ -235,12 +254,12 @@ cases_from_proceedings <-
   # -2 rows
   filter(!is.na(idncase))
 
+# The 40-column source frame is no longer needed; release it before the sort.
+rm(proceeding_tbl)
+gc()
+
+log_step("proceeding: drop inconsistent case types, sort")
 # Cases whose proceedings disagree on case type are dropped (-314 rows).
-# Expressed as an aggregate plus a join rather than
-# `filter(n_distinct(case_type_code) == 1, .by = "idncase")`: duckplyr has no
-# translation for a grouped filter and falls back to dplyr, which would
-# materialize the whole 16.5M-row frame immediately before the arrange() and
-# summarise() below. This form stays in DuckDB.
 consistent_case_types <-
   cases_from_proceedings |>
   summarise(n_case_types = n_distinct(case_type_code), .by = idncase) |>
@@ -257,24 +276,15 @@ cases_from_proceedings <-
     other_comp,
     idnproceeding
   ) |>
-  # Freeze the sort order into a column. DuckDB does not guarantee that a
-  # GROUP BY feeds rows to an aggregate in input order ("neither in- nor
-  # output order are guaranteed"), so first()/last()/nth() must be told the
-  # order explicitly. Without this the collapse below silently returns the
-  # wrong proceeding for a small number of cases, and a different number of
-  # them on each run. row_number() over the sorted frame is the remedy
-  # DuckDB's own order-preservation docs recommend.
+  # Freeze the sort order into a column. A grouped aggregate is not promised
+  # the rows in input order, so first()/last()/nth() must be told the order
+  # explicitly; without it the collapse below returns the wrong proceeding for
+  # a handful of cases, and a different handful on each run.
   mutate(row_order = row_number())
 
-rm(proceeding_tbl, consistent_case_types)
-gc()
+rm(consistent_case_types)
 
-# Row order within each idncase group is established by the arrange() above
-# (comp_date, dec_code, other_comp, idnproceeding) and passed to each
-# aggregate via order_by = row_order. Use `.by =` rather than group_by():
-# duckplyr cannot execute group_by() and silently falls back to plain dplyr,
-# which loses the whole speedup. arrange() afterwards because `.by =` returns
-# groups in hash order.
+log_step("proceeding: collapse to one row per case")
 cases_from_proceedings <-
   cases_from_proceedings |>
   summarise(
@@ -296,7 +306,7 @@ cases_from_proceedings <-
   ) |>
   arrange(idncase)
 
-# Validate collapsed case-level dataset
+log_step("proceeding: validate collapsed dataset")
 cases_from_proceedings |>
   as_tibble() |>
   rows_distinct(idncase) |>
@@ -334,6 +344,7 @@ cases_from_proceedings |>
   ) |>
   invisible()
 
+log_step("proceeding: write parquet")
 arrow::write_parquet(
   cases_from_proceedings,
   "tmp/cases_from_proceedings.parquet",
