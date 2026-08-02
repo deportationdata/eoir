@@ -74,6 +74,15 @@ jobs:
           DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
         run: Rscript tests/test_clean_eoir_cols.R
 
+      # The six per-application-type decision columns are derived by filtering
+      # and joining rather than by one grouped conditional aggregate, and
+      # fast_convert() parses datetimes with readr. Both are pinned against
+      # their previous implementations.
+      - name: Check court-application decisions and fast_convert
+        env:
+          DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
+        run: Rscript tests/test_court_applications_decisions.R
+
       - name: Download data
         env:
           DOWNLOAD_URL: ${{ inputs.download_url || 'https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip' }}

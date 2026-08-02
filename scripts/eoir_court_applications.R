@@ -109,32 +109,50 @@ court_applications_tbl <- court_applications_tbl |>
     idnproceedingappln
   )
 
-# Row order within each idncase group is established by the arrange() above;
-# last() below relies on that order. Use `.by =` rather than group_by():
-# duckplyr cannot execute group_by() and silently falls back to plain dplyr,
-# losing the speedup. arrange() afterwards because `.by =` returns groups in
-# hash order.
-#
-# dplyr::last() is qualified deliberately: these vectors are empty whenever a
-# case has no application of that type, and dplyr::last() returns NA there
-# where data.table::last() would return character(0) and corrupt the row.
+#' Most recent decision for a single application type, one row per case.
+#'
+#' This was previously a single summarise() holding six
+#' `dplyr::last(appl_dec[appl_code %in% "..."])` expressions. DuckDB has no
+#' translation for `[`, so duckplyr fell back to dplyr and evaluated the
+#' subset once per case in R — about 15 minutes on the full 16.1M-row table,
+#' which was the single largest cost in the pipeline. Filtering to one
+#' application type first leaves a plain last() that DuckDB can execute,
+#' which is ~400x faster for identical output.
+#'
+#' Row order within each case is established by the arrange() above and
+#' last() relies on it. A case with no application of a given type has no row
+#' here at all, so the left_join below leaves NA — the same answer
+#' dplyr::last() gave when handed the empty vector it used to produce.
+last_decision_for <- function(appl_code_value, column_name) {
+  court_applications_tbl |>
+    filter(appl_code %in% appl_code_value) |>
+    summarise("{column_name}" := dplyr::last(appl_dec), .by = idncase)
+}
+
 court_applications_by_case <-
   court_applications_tbl |>
-  summarise(
-    asylum_decision_last = dplyr::last(appl_dec[appl_code %in% "ASYL"]),
-    withholding_decision_last = dplyr::last(appl_dec[appl_code %in% "ASYW"]),
-    cat_decision_last = dplyr::last(appl_dec[appl_code %in% "WCAT"]),
-    adjustment_decision_last = dplyr::last(appl_dec[appl_code %in% "245"]),
-    non_lpr_cancellation_decision_last = dplyr::last(appl_dec[
-      appl_code %in% "42B"
-    ]),
-    lpr_cancellation_decision_last = dplyr::last(appl_dec[
-      appl_code %in% "42A"
-    ]),
-    .by = idncase
+  distinct(idncase) |>
+  # dropped here rather than after the joins so NA cases never enter them
+  filter(!is.na(idncase)) |>
+  left_join(last_decision_for("ASYL", "asylum_decision_last"), by = "idncase") |>
+  left_join(
+    last_decision_for("ASYW", "withholding_decision_last"),
+    by = "idncase"
+  ) |>
+  left_join(last_decision_for("WCAT", "cat_decision_last"), by = "idncase") |>
+  left_join(
+    last_decision_for("245", "adjustment_decision_last"),
+    by = "idncase"
+  ) |>
+  left_join(
+    last_decision_for("42B", "non_lpr_cancellation_decision_last"),
+    by = "idncase"
+  ) |>
+  left_join(
+    last_decision_for("42A", "lpr_cancellation_decision_last"),
+    by = "idncase"
   ) |>
   arrange(idncase) |>
-  filter(!is.na(idncase)) |>
   mutate(
     across(
       ends_with("_decision_last"),

@@ -255,7 +255,29 @@ fast_convert <- function(df, col_specs, na = na_vals, max_fail_rate = 0.001) {
       col_specs[[col_name]],
       integer = suppressWarnings(as.integer(orig)),
       double = suppressWarnings(as.double(orig)),
-      datetime = as.POSIXct(orig, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
+      # readr's parser rather than as.POSIXct(): ~9x faster (8.6s -> 1.0s per
+      # 2M-row column), and the dominant cost in this function.
+      #
+      # `format` is required, not stylistic. Left to guess, parse_datetime()
+      # is more permissive than as.POSIXct() — it accepts a bare "2020-01-01"
+      # where as.POSIXct() returns NA. That would both change published values
+      # and shift the failure counts checked against max_fail_rate below. With
+      # the format pinned, the NA pattern and the parsed values match
+      # as.POSIXct() exactly across valid input, "", NA, "N/A", malformed
+      # dates and whitespace-padded values.
+      datetime = {
+        parsed <- suppressWarnings(
+          readr::parse_datetime(orig, format = "%Y-%m-%d %H:%M:%S")
+        )
+        # readr attaches a `problems` attribute recording every failed row.
+        # It survives downstream conversions such as as.Date() and would ride
+        # into the written parquet, so drop it — this function does its own
+        # failure accounting below.
+        attr(parsed, "problems") <- NULL
+        parsed
+      },
+      # Deliberately NOT readr::parse_date(): it returns NA for
+      # "2020-01-01 00:00:00", which as.Date() accepts.
       date = as.Date(orig, format = "%Y-%m-%d"),
       stop(sprintf(
         "fast_convert: unknown type '%s' for column '%s'",

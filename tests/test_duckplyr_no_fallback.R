@@ -86,6 +86,16 @@ shapes <- list(
   },
   "arrange + NA-first ordering (eoir_court_applications)" = function(d) {
     d |> arrange(idncase, desc(is.na(comp_date)), comp_date, seq_id)
+  },
+  # Was a known fallback: last(appl_dec[appl_code %in% "ASYL"]) cannot be
+  # translated because DuckDB has no `[`. Filtering to one application type
+  # first leaves a plain last() that DuckDB executes, which is what made
+  # eoir_court_applications.R ~15 minutes faster. If this ever stops being
+  # native the pipeline silently loses that back.
+  "filter + summarise(.by=) per application type" = function(d) {
+    d |> arrange(idncase, comp_date, seq_id) |>
+      filter(appl_code %in% "ASYL") |>
+      summarise(asylum_decision_last = dplyr::last(appl_dec), .by = idncase)
   }
 )
 
@@ -111,8 +121,12 @@ cat("\n[3/4] known, accepted fallbacks (reported, not failed)\n")
 # These genuinely cannot run in DuckDB. They are listed so the boundary stays
 # visible: if one ever *starts* translating, that is a free speedup worth
 # promoting into the must-be-native list above.
+#
+# The conditional aggregate that used to live here has been promoted: it is
+# now expressed as filter + summarise per application type and is required to
+# be native.
 known_fallbacks <- list(
-  "summarise(.by=) conditional last(x[cond]) - eoir_court_applications" = function(d) {
+  "summarise(.by=) conditional last(x[cond]) - no longer used in the pipeline" = function(d) {
     d |> arrange(idncase, comp_date, seq_id) |>
       summarise(a = dplyr::last(appl_dec[appl_code %in% "ASYL"]), .by = idncase)
   }
