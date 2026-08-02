@@ -83,6 +83,15 @@ jobs:
           DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
         run: Rscript tests/test_court_applications_decisions.R
 
+      # DuckDB does not guarantee the row order an aggregate sees, so every
+      # first()/last()/nth() in the pipeline must pass order_by = row_order.
+      # Without it the collapses return the wrong row for a handful of cases,
+      # and a different handful on each run.
+      - name: Check aggregate ordering is explicit
+        env:
+          DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
+        run: Rscript tests/test_aggregate_ordering.R
+
       - name: Download data
         env:
           DOWNLOAD_URL: ${{ inputs.download_url || 'https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip' }}

@@ -107,7 +107,13 @@ court_applications_tbl <- court_applications_tbl |>
     dec_rank,
     appl_recd_date,
     idnproceedingappln
-  )
+  ) |>
+  # Freeze the sort order into a column: DuckDB does not guarantee a GROUP BY
+  # feeds rows to an aggregate in input order, so last() below is told the
+  # order explicitly via order_by = row_order. Doing it this way also sidesteps
+  # order_by= being unable to express the desc() term above. See
+  # scripts/eoir_proceeding.R for the full note.
+  mutate(row_order = row_number())
 
 #' Most recent decision for a single application type, one row per case.
 #'
@@ -119,14 +125,19 @@ court_applications_tbl <- court_applications_tbl |>
 #' application type first leaves a plain last() that DuckDB can execute,
 #' which is ~400x faster for identical output.
 #'
-#' Row order within each case is established by the arrange() above and
-#' last() relies on it. A case with no application of a given type has no row
-#' here at all, so the left_join below leaves NA — the same answer
-#' dplyr::last() gave when handed the empty vector it used to produce.
+#' Row order within each case is established by the arrange() above and passed
+#' to last() explicitly via order_by = row_order, because DuckDB does not
+#' guarantee that a GROUP BY feeds rows to an aggregate in input order. A case
+#' with no application of a given type has no row here at all, so the
+#' left_join below leaves NA — the same answer dplyr::last() gave when handed
+#' the empty vector it used to produce.
 last_decision_for <- function(appl_code_value, column_name) {
   court_applications_tbl |>
     filter(appl_code %in% appl_code_value) |>
-    summarise("{column_name}" := dplyr::last(appl_dec), .by = idncase)
+    summarise(
+      "{column_name}" := dplyr::last(appl_dec, order_by = row_order),
+      .by = idncase
+    )
 }
 
 court_applications_by_case <-

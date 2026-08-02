@@ -120,7 +120,12 @@ appeals_tbl <-
     appeal_filed_by_code = str_filed_by,
     custody_at_appeal_code = str_custody
   ) |>
-  arrange(idncase, bia_decision_date, appeal_filed_date, idn_appeal)
+  arrange(idncase, bia_decision_date, appeal_filed_date, idn_appeal) |>
+  # Freeze the sort order into a column: DuckDB does not guarantee a GROUP BY
+  # feeds rows to an aggregate in input order, so last() below is told the
+  # order explicitly via order_by = row_order. See scripts/eoir_proceeding.R
+  # for the full note.
+  mutate(row_order = row_number())
 
 # Validate date ordering (appeal filed before decision)
 appeals_tbl |>
@@ -135,22 +140,23 @@ appeals_tbl |>
   invisible()
 
 # Row order within each idncase group is established by the arrange() above
-# (bia_decision_date, appeal_filed_date, idn_appeal); last() below relies on
-# that order. Use `.by =` rather than group_by(): duckplyr cannot execute
-# group_by() and silently falls back to plain dplyr, losing the speedup.
-# arrange() afterwards because `.by =` returns groups in hash order.
+# (bia_decision_date, appeal_filed_date, idn_appeal) and passed to each
+# aggregate via order_by = row_order. Use `.by =` rather than group_by():
+# duckplyr cannot execute group_by() and silently falls back to plain dplyr,
+# losing the speedup. arrange() afterwards because `.by =` returns groups in
+# hash order.
 appeals_by_case <-
   appeals_tbl |>
   summarise(
-    bia_decision = last(bia_decision),
-    bia_decision_type_code = last(bia_decision_type_code),
-    # appeal_category = last(appeal_category),
-    appeal_type = last(appeal_type),
-    appeal_filed_by_code = last(appeal_filed_by_code),
-    custody_at_appeal_code = last(custody_at_appeal_code),
-    e27_date = last(e27_date),
-    bia_decision_date = last(bia_decision_date),
-    appeal_filed_date = last(appeal_filed_date),
+    bia_decision = last(bia_decision, order_by = row_order),
+    bia_decision_type_code = last(bia_decision_type_code, order_by = row_order),
+    # appeal_category = last(appeal_category, order_by = row_order),
+    appeal_type = last(appeal_type, order_by = row_order),
+    appeal_filed_by_code = last(appeal_filed_by_code, order_by = row_order),
+    custody_at_appeal_code = last(custody_at_appeal_code, order_by = row_order),
+    e27_date = last(e27_date, order_by = row_order),
+    bia_decision_date = last(bia_decision_date, order_by = row_order),
+    appeal_filed_date = last(appeal_filed_date, order_by = row_order),
     # pending_appeal = any(is.na(bia_decision_date) & !is.na(appeal_filed_date))
     .by = idncase
   ) |>

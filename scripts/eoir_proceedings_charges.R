@@ -118,20 +118,26 @@ charges_tbl <- charges_tbl |>
   distinct(idncase, idnproceeding, charge_str, .keep_all = TRUE)
 
 charges_tbl <- charges_tbl |>
-  arrange(idncase, idnproceeding, idnprcdchg)
+  arrange(idncase, idnproceeding, idnprcdchg) |>
+  # Freeze the sort order into a column: DuckDB does not guarantee a GROUP BY
+  # feeds rows to an aggregate in input order, so nth() below is told the
+  # order explicitly via order_by = row_order. See scripts/eoir_proceeding.R
+  # for the full note.
+  mutate(row_order = row_number())
 
-# Row order within each idncase group is established by the arrange() above;
-# nth() below relies on that order, and returns NA past the end of the group
-# (matching out-of-bounds `[1L]` etc. indexing in the data.table block this
-# replaces). Use `.by =` rather than group_by(): duckplyr cannot execute
-# group_by() and silently falls back to plain dplyr, losing the speedup.
-# arrange() afterwards because `.by =` returns groups in hash order.
+# Row order within each idncase group is established by the arrange() above
+# and passed to each aggregate via order_by = row_order. nth() returns NA past
+# the end of the group (matching out-of-bounds `[1L]` etc. indexing in the
+# data.table block this replaces). Use `.by =` rather than group_by():
+# duckplyr cannot execute group_by() and silently falls back to plain dplyr,
+# losing the speedup. arrange() afterwards because `.by =` returns groups in
+# hash order.
 charges_by_case <- charges_tbl |>
   summarise(
-    charge_section_1 = nth(charge_str, 1),
-    charge_section_2 = nth(charge_str, 2),
-    charge_section_3 = nth(charge_str, 3),
-    charge_section_4 = nth(charge_str, 4),
+    charge_section_1 = nth(charge_str, 1, order_by = row_order),
+    charge_section_2 = nth(charge_str, 2, order_by = row_order),
+    charge_section_3 = nth(charge_str, 3, order_by = row_order),
+    charge_section_4 = nth(charge_str, 4, order_by = row_order),
     .by = idncase
   ) |>
   arrange(idncase)

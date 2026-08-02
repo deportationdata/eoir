@@ -256,34 +256,42 @@ cases_from_proceedings <-
     dec_code,
     other_comp,
     idnproceeding
-  )
+  ) |>
+  # Freeze the sort order into a column. DuckDB does not guarantee that a
+  # GROUP BY feeds rows to an aggregate in input order ("neither in- nor
+  # output order are guaranteed"), so first()/last()/nth() must be told the
+  # order explicitly. Without this the collapse below silently returns the
+  # wrong proceeding for a small number of cases, and a different number of
+  # them on each run. row_number() over the sorted frame is the remedy
+  # DuckDB's own order-preservation docs recommend.
+  mutate(row_order = row_number())
 
 rm(proceeding_tbl, consistent_case_types)
 gc()
 
 # Row order within each idncase group is established by the arrange() above
-# (comp_date, dec_code, other_comp, idnproceeding); first()/last() below rely
-# on that order, matching the data.table by-group collapse this replaces.
-# Use `.by =` rather than group_by(): duckplyr cannot execute group_by() and
-# silently falls back to plain dplyr, which loses the whole speedup.
-# arrange() afterwards because `.by =` returns groups in hash order.
+# (comp_date, dec_code, other_comp, idnproceeding) and passed to each
+# aggregate via order_by = row_order. Use `.by =` rather than group_by():
+# duckplyr cannot execute group_by() and silently falls back to plain dplyr,
+# which loses the whole speedup. arrange() afterwards because `.by =` returns
+# groups in hash order.
 cases_from_proceedings <-
   cases_from_proceedings |>
   summarise(
-    final_completion_date = last(comp_date),
-    nta_date = first(nta_date),
-    first_court_code = first(base_city_code),
-    final_court_code = last(base_city_code),
-    case_type_code = first(case_type_code),
-    dec_code = last(dec_code),
-    other_comp = last(other_comp),
-    in_absentia = last(in_absentia),
-    first_hearing_location_code = first(hearing_loc_code),
-    last_hearing_location_code = last(hearing_loc_code),
-    first_judge_code = first(judge_code),
-    last_judge_code = last(judge_code),
-    deported_1_code = last(deported_1),
-    deported_2_code = last(deported_2),
+    final_completion_date = last(comp_date, order_by = row_order),
+    nta_date = first(nta_date, order_by = row_order),
+    first_court_code = first(base_city_code, order_by = row_order),
+    final_court_code = last(base_city_code, order_by = row_order),
+    case_type_code = first(case_type_code, order_by = row_order),
+    dec_code = last(dec_code, order_by = row_order),
+    other_comp = last(other_comp, order_by = row_order),
+    in_absentia = last(in_absentia, order_by = row_order),
+    first_hearing_location_code = first(hearing_loc_code, order_by = row_order),
+    last_hearing_location_code = last(hearing_loc_code, order_by = row_order),
+    first_judge_code = first(judge_code, order_by = row_order),
+    last_judge_code = last(judge_code, order_by = row_order),
+    deported_1_code = last(deported_1, order_by = row_order),
+    deported_2_code = last(deported_2, order_by = row_order),
     .by = idncase
   ) |>
   arrange(idncase)

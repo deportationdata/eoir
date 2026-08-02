@@ -56,7 +56,12 @@ custodyhistory_by_case <-
     date_detained = datdetained,
     date_released = datreleased
   ) |>
-  arrange(idncase, date_detained, idncustody)
+  arrange(idncase, date_detained, idncustody) |>
+  # Freeze the sort order into a column: DuckDB does not guarantee a GROUP BY
+  # feeds rows to an aggregate in input order, so nth() below is told the
+  # order explicitly via order_by = row_order. See scripts/eoir_proceeding.R
+  # for the full note.
+  mutate(row_order = row_number())
 
 # Validate date ordering (detained should precede release)
 custodyhistory_by_case |>
@@ -67,22 +72,23 @@ custodyhistory_by_case |>
   invisible()
 
 # Row order within each idncase group is established by the arrange() above
-# (date_detained, idncustody); nth() below relies on that order. nth() returns
-# NA past the end of the group, matching the pad-to-length-4 behavior of the
-# data.table block this replaces. Use `.by =` rather than group_by(): duckplyr
-# cannot execute group_by() and silently falls back to plain dplyr, losing the
-# speedup. arrange() afterwards because `.by =` returns groups in hash order.
+# (date_detained, idncustody) and passed to each aggregate via
+# order_by = row_order. nth() returns NA past the end of the group, matching
+# the pad-to-length-4 behavior of the data.table block this replaces. Use
+# `.by =` rather than group_by(): duckplyr cannot execute group_by() and
+# silently falls back to plain dplyr, losing the speedup. arrange() afterwards
+# because `.by =` returns groups in hash order.
 custodyhistory_by_case <-
   custodyhistory_by_case |>
   summarise(
-    detention_start_1 = nth(date_detained, 1),
-    detention_start_2 = nth(date_detained, 2),
-    detention_start_3 = nth(date_detained, 3),
-    detention_start_4 = nth(date_detained, 4),
-    detention_end_1 = nth(date_released, 1),
-    detention_end_2 = nth(date_released, 2),
-    detention_end_3 = nth(date_released, 3),
-    detention_end_4 = nth(date_released, 4),
+    detention_start_1 = nth(date_detained, 1, order_by = row_order),
+    detention_start_2 = nth(date_detained, 2, order_by = row_order),
+    detention_start_3 = nth(date_detained, 3, order_by = row_order),
+    detention_start_4 = nth(date_detained, 4, order_by = row_order),
+    detention_end_1 = nth(date_released, 1, order_by = row_order),
+    detention_end_2 = nth(date_released, 2, order_by = row_order),
+    detention_end_3 = nth(date_released, 3, order_by = row_order),
+    detention_end_4 = nth(date_released, 4, order_by = row_order),
     .by = idncase
   ) |>
   arrange(idncase)

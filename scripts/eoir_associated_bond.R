@@ -158,7 +158,12 @@ associated_bond_tbl <-
     bond_completion_date,
     bond_hearing_request_date,
     idnassocbond
-  )
+  ) |>
+  # Freeze the sort order into a column: DuckDB does not guarantee a GROUP BY
+  # feeds rows to an aggregate in input order, so first()/nth()/last() below
+  # are told the order explicitly via order_by = row_order. See
+  # scripts/eoir_proceeding.R for the full note.
+  mutate(row_order = row_number())
 
 # Post-transform validation
 associated_bond_tbl |>
@@ -175,40 +180,40 @@ associated_bond_tbl |>
   invisible()
 
 # Row order within each idncase group is established by the arrange() above
-# (bond_completion_date, bond_hearing_request_date, idnassocbond); first()/
-# nth()/last() below rely on that order. Use `.by =` rather than group_by():
-# duckplyr cannot execute group_by() and silently falls back to plain dplyr,
-# losing the speedup. arrange() afterwards because `.by =` returns groups in
-# hash order.
+# (bond_completion_date, bond_hearing_request_date, idnassocbond) and passed
+# to each aggregate via order_by = row_order. Use `.by =` rather than
+# group_by(): duckplyr cannot execute group_by() and silently falls back to
+# plain dplyr, losing the speedup. arrange() afterwards because `.by =`
+# returns groups in hash order.
 associated_bond_by_case <-
   associated_bond_tbl |>
   summarise(
-    bond_completion_date_first = first(bond_completion_date),
-    bond_court_code_first = first(base_city_code),
-    bond_judge_code_first = first(ij_code),
-    hearing_location_code_first = first(hearing_location_code),
-    bond_hearing_request_date_first = first(bond_hearing_request_date),
-    bond_decision_first = first(bond_decision),
-    initial_bond_amount_first = first(initial_bond_amount),
-    new_bond_amount_first = first(new_bond_amount),
+    bond_completion_date_first = first(bond_completion_date, order_by = row_order),
+    bond_court_code_first = first(base_city_code, order_by = row_order),
+    bond_judge_code_first = first(ij_code, order_by = row_order),
+    hearing_location_code_first = first(hearing_location_code, order_by = row_order),
+    bond_hearing_request_date_first = first(bond_hearing_request_date, order_by = row_order),
+    bond_decision_first = first(bond_decision, order_by = row_order),
+    initial_bond_amount_first = first(initial_bond_amount, order_by = row_order),
+    new_bond_amount_first = first(new_bond_amount, order_by = row_order),
 
-    bond_completion_date_second = nth(bond_completion_date, 2),
-    bond_court_code_second = nth(base_city_code, 2),
-    bond_judge_code_second = nth(ij_code, 2),
-    hearing_location_code_second = nth(hearing_location_code, 2),
-    bond_hearing_request_date_second = nth(bond_hearing_request_date, 2),
-    bond_decision_second = nth(bond_decision, 2),
-    initial_bond_amount_second = nth(initial_bond_amount, 2),
-    new_bond_amount_second = nth(new_bond_amount, 2),
+    bond_completion_date_second = nth(bond_completion_date, 2, order_by = row_order),
+    bond_court_code_second = nth(base_city_code, 2, order_by = row_order),
+    bond_judge_code_second = nth(ij_code, 2, order_by = row_order),
+    hearing_location_code_second = nth(hearing_location_code, 2, order_by = row_order),
+    bond_hearing_request_date_second = nth(bond_hearing_request_date, 2, order_by = row_order),
+    bond_decision_second = nth(bond_decision, 2, order_by = row_order),
+    initial_bond_amount_second = nth(initial_bond_amount, 2, order_by = row_order),
+    new_bond_amount_second = nth(new_bond_amount, 2, order_by = row_order),
 
-    bond_completion_date_last = last(bond_completion_date),
-    bond_court_code_last = last(base_city_code),
-    bond_judge_code_last = last(ij_code),
-    hearing_location_code_last = last(hearing_location_code),
-    bond_hearing_request_date_last = last(bond_hearing_request_date),
-    bond_decision_last = last(bond_decision),
-    initial_bond_amount_last = last(initial_bond_amount),
-    new_bond_amount_last = last(new_bond_amount),
+    bond_completion_date_last = last(bond_completion_date, order_by = row_order),
+    bond_court_code_last = last(base_city_code, order_by = row_order),
+    bond_judge_code_last = last(ij_code, order_by = row_order),
+    hearing_location_code_last = last(hearing_location_code, order_by = row_order),
+    bond_hearing_request_date_last = last(bond_hearing_request_date, order_by = row_order),
+    bond_decision_last = last(bond_decision, order_by = row_order),
+    initial_bond_amount_last = last(initial_bond_amount, order_by = row_order),
+    new_bond_amount_last = last(new_bond_amount, order_by = row_order),
     .by = idncase
   ) |>
   arrange(idncase) |>

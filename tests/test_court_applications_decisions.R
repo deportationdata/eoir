@@ -71,7 +71,8 @@ court_applications_tbl <- court_applications_tbl |>
     dec_rank,
     appl_recd_date,
     idnproceedingappln
-  )
+  ) |>
+  mutate(row_order = row_number())
 
 # ------------------------------------------------- reference (old form) ------
 reference <- court_applications_tbl |>
@@ -96,7 +97,10 @@ reference <- court_applications_tbl |>
 last_decision_for <- function(appl_code_value, column_name) {
   court_applications_tbl |>
     filter(appl_code %in% appl_code_value) |>
-    summarise("{column_name}" := dplyr::last(appl_dec), .by = idncase)
+    summarise(
+      "{column_name}" := dplyr::last(appl_dec, order_by = row_order),
+      .by = idncase
+    )
 }
 
 current <- court_applications_tbl |>
