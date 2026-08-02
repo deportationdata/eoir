@@ -92,6 +92,15 @@ jobs:
           DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
         run: Rscript tests/test_aggregate_ordering.R
 
+      # A column carrying an extra class (glue::glue() returns glue/character)
+      # cannot be aggregated as a plain vector, so the grouped collapse falls
+      # back to per-group dispatch: 187s vs 0.02s on a 250k-row fixture, and
+      # enough to run the real job past its six-hour limit.
+      - name: Check collapse inputs are plain columns
+        env:
+          DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
+        run: Rscript tests/test_collapse_column_types.R
+
       - name: Download data
         env:
           DOWNLOAD_URL: ${{ inputs.download_url || 'https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip' }}

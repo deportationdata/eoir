@@ -35,6 +35,7 @@ tblLookupFiledBy <- read_eoir_lookup("inputs_eoir/tblLookupFiledBy.csv")
 tblLookupCaseType <- read_eoir_lookup("inputs_eoir/tblLookupCaseType.csv")
 tblLookupSex <- read_eoir_lookup("inputs_eoir/tblLookupSex.csv")
 
+log_step("case_joins: proceedings + custody")
 cases <-
   read_tmp("tmp/cases_from_proceedings.parquet")
 
@@ -119,6 +120,7 @@ cases |>
   ) |>
   invisible()
 
+log_step("case_joins: appeals")
 appeals_by_case <-
   read_tmp("tmp/appeals_cases.parquet")
 
@@ -162,6 +164,7 @@ cases <-
     )
   )
 
+log_step("case_joins: applications + bond")
 court_applications_by_case <-
   read_tmp("tmp/court_applications_cases.parquet")
 
@@ -233,6 +236,7 @@ cases <-
 rm(associated_bond_by_case)
 gc()
 
+log_step("case_joins: charges + decision lookups")
 charges_by_case <- read_tmp("tmp/charges_cases.parquet")
 
 cases <-
@@ -311,6 +315,7 @@ cases <-
 
 # Resolve code columns to human-readable descriptions via lookup tables
 
+log_step("case_joins: label recodes")
 # Language
 cases <- cases |>
   rename(language_code = lang) |>
@@ -388,7 +393,10 @@ base_city_desc <-
   filter(!is.na(base_city_code)) |>
   transmute(
     base_city_code,
-    court_desc = glue::glue("{base_city} ({base_city_code})")
+    # paste0() rather than glue(): a glue-classed column joined into `cases`
+    # would carry that class into the released file and through every
+    # downstream verb. Same output, including "NA (XXX)" for a missing city.
+    court_desc = paste0(base_city, " (", base_city_code, ")")
   )
 
 cases <- cases |>
@@ -706,6 +714,7 @@ cases |>
   ) |>
   invisible()
 
+log_step("case_joins: derived columns")
 cases <-
   cases |>
   mutate(
@@ -956,6 +965,7 @@ cases <-
     bond_hearing_request_date_last_to_bond_completion_date_last_days
   )
 
+log_step("case_joins: final filter and sort")
 # filter cases for final dataset
 cases <-
   cases |>
@@ -972,6 +982,7 @@ cases <-
   # byte-stable between runs rather than reshuffling on every rebuild
   arrange(idncase)
 
+log_step("case_joins: write parquet")
 arrow::write_parquet(
   cases,
   "data/cases.parquet",

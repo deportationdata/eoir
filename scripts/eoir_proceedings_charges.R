@@ -19,7 +19,7 @@ charges_tbl <-
   as_tibble() |>
   clean_eoir_cols()
 
-# Validate before transforms
+log_step("charges: pre-transform validation")
 charges_tbl |>
   col_vals_not_null(
     IDNPRCDCHG,
@@ -53,6 +53,7 @@ charges_tbl |>
   ) |>
   invisible()
 
+log_step("charges: type conversion")
 charges_tbl <- fast_convert(
   charges_tbl,
   list(
@@ -66,6 +67,7 @@ charges_tbl <-
   charges_tbl |>
   janitor::clean_names()
 
+log_step("charges: parse charge codes")
 # Parse charge codes into INA section citation format
 # e.g. "212a6Ci" -> "212(a)(6)(C)(i)", "237a2Biv" -> "237(a)(2)(B)(iv)"
 charges_tbl <- charges_tbl |>
@@ -91,11 +93,17 @@ charges_tbl <- charges_tbl |>
       # Remove any empty parentheses produced by edge cases
       str_replace_all("\\(\\)", ""),
 
-    # Combine section and parsed remainder into final citation string
+    # Combine section and parsed remainder into final citation string.
+    # paste0() rather than glue(): glue() returns a vector classed
+    # `glue/character`, and that class survives all the way to the collapse
+    # below, where the grouped nth() then has to go through per-group vctrs
+    # dispatch instead of a plain character aggregate. Measured at 250k rows /
+    # 61k groups that is 187s versus 0.02s, for byte-identical output — at the
+    # full 11.9M rows it was enough to hang the job past its six-hour limit.
     charge_str = if_else(
       is.na(section),
       NA_character_,
-      glue::glue("{section}{remainder}")
+      paste0(section, remainder)
     )
   )
 
@@ -113,6 +121,7 @@ charges_tbl <-
     )
   )
 
+log_step("charges: deduplicate and sort")
 # Deduplicate charges within each proceeding
 charges_tbl <- charges_tbl |>
   distinct(idncase, idnproceeding, charge_str, .keep_all = TRUE)
@@ -124,6 +133,7 @@ charges_tbl <- charges_tbl |>
 
 # nth() returns NA past the end of a group, matching the out-of-bounds `[1L]`
 # indexing in the data.table block this replaces.
+log_step("charges: collapse to one row per case")
 charges_by_case <- charges_tbl |>
   summarise(
     charge_section_1 = nth(charge_str, 1, order_by = row_order),
@@ -144,6 +154,7 @@ charges_by_case |>
   ) |>
   invisible()
 
+log_step("charges: write parquet")
 arrow::write_parquet(
   charges_by_case,
   "tmp/charges_cases.parquet",
