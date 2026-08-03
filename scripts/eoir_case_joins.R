@@ -98,8 +98,19 @@ cases <- cases |>
   select(-alien_zipcode)
 
 log_step("case_joins: validate zip merge")
+# Counted here rather than inside the validation chain below: that chain now
+# runs against a DuckDB table, and nrow() on a lazy table is NA, so the check
+# belongs on `cases` itself where the count is real. n_rows() asks DuckDB.
+n_after_zip <- n_rows(cases)
+if (n_after_zip != n_before_zip) {
+  stop(sprintf(
+    "zip left_join changed the row count: %d -> %d (many-to-one, so it should not)",
+    n_before_zip,
+    n_after_zip
+  ))
+}
+
 validate_in_duckdb(cases, \(tbl) tbl |>
-  row_count_match(n_before_zip) |>
   # Zip merge should not introduce too many NAs
   # col_vals_not_null(
   #   state,

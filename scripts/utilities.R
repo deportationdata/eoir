@@ -464,6 +464,13 @@ check_parse <- function(df, max_fail_rate = 0.001) {
 #' Designed for pipe use after joins that should not change row count.
 row_count_match <- function(df, expected_n) {
   actual_n <- nrow(df)
+  if (is.na(actual_n)) {
+    # nrow() is NA for a lazy table — a dbplyr/DBI handle does not know its own
+    # row count without querying. Left alone that made the comparison below
+    # NA and failed with "missing value where TRUE/FALSE needed", naming
+    # neither the table nor the count. Ask the database instead.
+    actual_n <- dplyr::pull(dplyr::count(df, name = "..n_rows"), "..n_rows")
+  }
   if (actual_n != expected_n) {
     stop(sprintf(
       "row_count_match: expected %d rows, got %d (diff=%d)",

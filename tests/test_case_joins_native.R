@@ -35,14 +35,14 @@ check <- function(label, ok) {
   }
 }
 
-cat("\n[1/3] coalesce() is a drop-in for replace_na()\n")
+cat("\n[1/4] coalesce() is a drop-in for replace_na()\n")
 x <- c("DENY", NA, "GRANT", "")
 check(
   "identical on a character column, empty string included",
   identical(replace_na(x, "No application"), coalesce(x, "No application"))
 )
 
-cat("\n[2/3] a label join is a drop-in for recode_values()\n")
+cat("\n[2/4] a label join is a drop-in for recode_values()\n")
 set.seed(7)
 n <- 50000
 codes <- data.frame(
@@ -81,7 +81,7 @@ check(
   any(codes$custody_code %in% "Z") && any(is.na(codes$custody_code))
 )
 
-cat("\n[3/3] the wide-frame script uses neither\n")
+cat("\n[3/4] the wide-frame script uses neither\n")
 src <- readLines("scripts/eoir_case_joins.R", warn = FALSE)
 src <- src[!grepl("^\\s*#", src)]
 for (verb in c("replace_na", "recode_values")) {
@@ -89,6 +89,26 @@ for (verb in c("replace_na", "recode_values")) {
   check(sprintf("eoir_case_joins.R free of %s()", verb), length(hits) == 0)
   for (l in utils::head(hits, 2)) cat("         ", trimws(l), "\n")
 }
+
+cat("\n[4/4] row_count_match() copes with a lazy table\n")
+# nrow() is NA on a dbplyr handle, which made this helper fail with "missing
+# value where TRUE/FALSE needed" once a validation chain ran against DuckDB.
+source("scripts/utilities.R")
+con <- DBI::dbConnect(duckdb::duckdb())
+on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+duckdb::duckdb_register(con, "rcm_tbl", data.frame(a = 1:2500))
+lazy <- dplyr::tbl(con, "rcm_tbl")
+
+check("nrow() really is NA for the lazy table (the trap)", is.na(nrow(lazy)))
+check(
+  "matching count passes",
+  tryCatch({ row_count_match(lazy, 2500L); TRUE }, error = function(e) FALSE)
+)
+check(
+  "mismatched count still raises, and says the counts",
+  tryCatch({ row_count_match(lazy, 9L); FALSE },
+           error = function(e) grepl("expected 9 rows, got 2500", conditionMessage(e)))
+)
 
 cat("\n")
 if (length(failures)) {
