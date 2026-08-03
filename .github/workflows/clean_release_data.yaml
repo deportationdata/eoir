@@ -101,6 +101,14 @@ jobs:
           DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
         run: Rscript tests/test_collapse_column_types.R
 
+      # eoir_case_joins.R carries a ~180-column frame, so a verb DuckDB cannot
+      # translate copies the whole thing in R. replace_na() and recode_values()
+      # cost +3GB on a 400k-row fixture, ~35GB on the real table.
+      - name: Check the wide join script stays in DuckDB
+        env:
+          DUCKPLYR_FALLBACK_AUTOUPLOAD: "0"
+        run: Rscript tests/test_case_joins_native.R
+
       - name: Download data
         env:
           DOWNLOAD_URL: ${{ inputs.download_url || 'https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip' }}

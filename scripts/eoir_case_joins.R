@@ -288,34 +288,48 @@ cases <-
         non_lpr_cancellation_decision_last,
         lpr_cancellation_decision_last
       ),
-      \(x) replace_na(x, "No application")
+      # coalesce() rather than tidyr's replace_na(): identical on a character
+      # column, but replace_na() has no DuckDB translation, so this mutate
+      # dropped back into R and copied the whole ~180-column frame. Measured on
+      # 400k x 194: +1812MB for replace_na, +0MB for coalesce.
+      \(x) coalesce(x, "No application")
     )
   ) |>
   select(-dec_code, -other_comp, -other_completion)
 
 log_step("case_joins: custody/asylum recodes")
-# Recode custody and asylum claim type codes to human-readable labels
+# Recode custody and asylum claim type codes to human-readable labels.
+#
+# Joined from a label table rather than recode_values(), which has no DuckDB
+# translation and so copied the whole ~180-column frame in R (+1254MB on a
+# 400k x 194 fixture; nothing at all this way). recode_values() returns NA for
+# a code that matches nothing and for NA, which is exactly what the left joins
+# give, and this is how the script resolves every other code column below.
+custody_labels <- tibble(
+  custody_code = c("N", "R", "D"),
+  custody = c("never detained", "released", "detained throughout")
+)
+asylum_claim_type_labels <- tibble(
+  asylum_claim_type_code = c("I", "E", "J"),
+  asylum_claim_type = c("affirmative", "defensive", "J")
+)
+custody_at_appeal_labels <- tibble(
+  custody_at_appeal_code = c("N", "R", "D"),
+  custody_at_appeal = c("never detained", "released", "detained throughout")
+)
+
 cases <-
   cases |>
-  mutate(
-    custody = recode_values(
-      custody_code,
-      "N" ~ "never detained",
-      "R" ~ "released",
-      "D" ~ "detained throughout"
-    ),
-    asylum_claim_type = recode_values(
-      asylum_claim_type_code,
-      "I" ~ "affirmative",
-      "E" ~ "defensive",
-      "J" ~ "J"
-    ),
-    custody_at_appeal = recode_values(
-      custody_at_appeal_code,
-      "N" ~ "never detained",
-      "R" ~ "released",
-      "D" ~ "detained throughout"
-    )
+  left_join(custody_labels, by = "custody_code", relationship = "many-to-one") |>
+  left_join(
+    asylum_claim_type_labels,
+    by = "asylum_claim_type_code",
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    custody_at_appeal_labels,
+    by = "custody_at_appeal_code",
+    relationship = "many-to-one"
   )
 
 # Resolve code columns to human-readable descriptions via lookup tables
