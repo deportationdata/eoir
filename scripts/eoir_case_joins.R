@@ -746,39 +746,69 @@ validate_in_duckdb(cases, \(tbl) tbl |>
   invisible())
 
 log_step("case_joins: derived columns")
+
+EOIR_ABBREVIATIONS <- c(
+  "ABC",
+  "BIA",
+  "CAT",
+  "CFV",
+  "CPC",
+  "DHS",
+  "EOIR",
+  "IJ",
+  "INA",
+  "ORR",
+  "PD",
+  "ROP",
+  "V/D",
+  "VD",
+  "WCAT"
+)
+
+# Title-case the free-text columns one at a time rather than through
+# across(). str_to_title() has no DuckDB translation, so this runs in R
+# either way — but across() builds every rewritten column before assigning
+# any of them, holding ~100 rewritten character columns of a 12.5M-row frame
+# alongside the originals, and each one mints new strings. That took R from
+# 12GB past 61GB and the runner was killed. The loop keeps one column in
+# flight. Same fix as clean_eoir_cols(), for the same reason.
+#
+# The column set is exactly what the tidyselect expression picked:
+# character columns, minus codes, courts, judge names, charge sections,
+# fips and state. contains() is a fixed substring match, hence fixed = TRUE.
+TITLE_CASE_EXCLUDE <- c(
+  "_code",
+  "_court",
+  "judge_name",
+  "charge_section",
+  "fips",
+  "state"
+)
+
+cases <- as.data.frame(cases)
+title_case_cols <- names(cases)[
+  vapply(cases, is.character, logical(1)) &
+    !Reduce(
+      `|`,
+      lapply(
+        TITLE_CASE_EXCLUDE,
+        \(p) grepl(p, names(cases), fixed = TRUE)
+      )
+    )
+]
+for (nm in title_case_cols) {
+  cases[[nm]] <- str_fix_abbreviations(
+    str_to_title(cases[[nm]]),
+    abbr = EOIR_ABBREVIATIONS
+  )
+}
+gc()
+log_step("case_joins: dates + court title case")
+
 cases <-
   cases |>
   mutate(
     across(where(is.POSIXct), ~ as.Date(.x, tz = "UTC")),
-    across(
-      where(is.character) &
-        !contains("_code") &
-        !contains("_court") &
-        !contains("judge_name") &
-        !contains("charge_section") &
-        !contains("fips") &
-        !contains("state"),
-      ~ str_to_title(.x) |>
-        str_fix_abbreviations(
-          abbr = c(
-            "ABC",
-            "BIA",
-            "CAT",
-            "CFV",
-            "CPC",
-            "DHS",
-            "EOIR",
-            "IJ",
-            "INA",
-            "ORR",
-            "PD",
-            "ROP",
-            "V/D",
-            "VD",
-            "WCAT"
-          )
-        )
-    ),
     across(
       c(
         first_court,

@@ -110,7 +110,7 @@ check(
            error = function(e) grepl("expected 9 rows, got 2500", conditionMessage(e)))
 )
 
-cat("\n[5/5] validate_in_duckdb() hands over the frame as it actually is\n")
+cat("\n[5/6] validate_in_duckdb() hands over the frame as it actually is\n")
 # The tidier-looking bridge would be duckplyr's own relation via last_rel(),
 # but that returns a stale relation: on a frame built with filter() then
 # mutate() it reports only the pre-mutate columns. Validating it would check
@@ -140,6 +140,71 @@ validate_in_duckdb(lz, function(tbl) { seen <<- colnames(tbl); invisible(tbl) })
 check("post-mutate columns reach the validation", all(c("flag", "derived") %in% seen))
 check("no column is lost", setequal(seen, colnames(lz)))
 check("temp handoff files are cleaned up", length(list.files("tmp", "^validate_")) == 0)
+
+cat("\n[6/6] the title-case loop matches the across() it replaces\n")
+# across() builds every rewritten column before assigning any, which on the
+# ~180-column cases frame held ~100 rewritten character columns alongside the
+# originals and took R past 61GB. The loop is only safe if it selects exactly
+# the same columns and produces exactly the same values.
+is.POSIXct <- function(x) inherits(x, "POSIXct")
+set.seed(4)
+nn <- 5000
+fixture <- data.frame(
+  idncase = seq_len(nn),
+  language = sample(c("SPANISH", "bia review", NA, "v/d granted"), nn, TRUE),
+  nationality = sample(c("MEXICO", "el salvador", NA), nn, TRUE),
+  first_court_code = "LOS",
+  first_court = sample(c("LOS ANGELES (LOS)", "new york (NYC)"), nn, TRUE),
+  final_court = "MIAMI (MIA)", bond_court_first = "DALLAS (DAL)",
+  bond_court_second = "DENVER (DEN)", bond_court_last = "BOSTON (BOS)",
+  first_judge_name = "SMITH, JOHN", charge_section_1 = "212(a)(6)(C)(i)",
+  county_fips_code = "06037", state = "CA",
+  dt = as.POSIXct("2020-01-02 03:04:05", tz = "UTC") + seq_len(nn),
+  stringsAsFactors = FALSE
+)
+AB <- c("ABC", "BIA", "CAT", "CFV", "CPC", "DHS", "EOIR", "IJ", "INA", "ORR",
+        "PD", "ROP", "V/D", "VD", "WCAT")
+courts <- c("first_court", "final_court", "bond_court_first",
+            "bond_court_second", "bond_court_last")
+
+by_across <- fixture |>
+  dplyr::mutate(
+    dplyr::across(where(is.POSIXct), ~ as.Date(.x, tz = "UTC")),
+    dplyr::across(
+      where(is.character) & !contains("_code") & !contains("_court") &
+        !contains("judge_name") & !contains("charge_section") &
+        !contains("fips") & !contains("state"),
+      ~ stringr::str_to_title(.x) |> str_fix_abbreviations(abbr = AB)
+    ),
+    dplyr::across(dplyr::all_of(courts),
+      ~ stringr::str_replace(.x, "^([^(]+)", \(m) stringr::str_to_title(m)))
+  )
+
+EX <- c("_code", "_court", "judge_name", "charge_section", "fips", "state")
+by_loop <- fixture
+sel <- names(by_loop)[vapply(by_loop, is.character, logical(1)) &
+  !Reduce(`|`, lapply(EX, \(p) grepl(p, names(by_loop), fixed = TRUE)))]
+for (nm in sel) {
+  by_loop[[nm]] <- str_fix_abbreviations(stringr::str_to_title(by_loop[[nm]]), abbr = AB)
+}
+by_loop <- by_loop |>
+  dplyr::mutate(
+    dplyr::across(where(is.POSIXct), ~ as.Date(.x, tz = "UTC")),
+    dplyr::across(dplyr::all_of(courts),
+      ~ stringr::str_replace(.x, "^([^(]+)", \(m) stringr::str_to_title(m)))
+  )
+
+check("selects the same columns as the tidyselect expression",
+      identical(sel, c("language", "nationality")))
+check("identical output", isTRUE(all.equal(as.data.frame(by_across), as.data.frame(by_loop))))
+check("abbreviations survive title casing",
+      any(grepl("BIA", by_loop$language, fixed = TRUE)) &&
+        any(grepl("V/D", by_loop$language, fixed = TRUE)))
+check("court codes stay upper case inside parentheses",
+      all(grepl("\\([A-Z]{3}\\)$", by_loop$first_court)))
+check("excluded columns are untouched",
+      identical(by_loop$first_judge_name, fixture$first_judge_name) &&
+        identical(by_loop$state, fixture$state))
 
 cat("\n")
 if (length(failures)) {
