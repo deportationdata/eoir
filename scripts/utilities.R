@@ -49,6 +49,35 @@ configure_duckdb_memory <- function(fraction = 0.5, temp_dir = "tmp/duckdb") {
 
 configure_duckdb_memory()
 
+#' Run a pointblank validation chain inside DuckDB instead of in R.
+#'
+#' pointblank has no duckplyr backend — a duckplyr frame inherits data.frame,
+#' so every validation is computed in R over the whole table. On a 3M x 19
+#' frame that is 20.8s and +584MB of R heap per chain; against the same data as
+#' a DuckDB table it is 13.7s and no measurable heap growth, because pointblank
+#' pushes `tbl_dbi` validations down to SQL. Pass/fail counts are identical, so
+#' the warn/stop thresholds behave exactly as before.
+#'
+#' `duckdb_register()` is zero-copy (+12MB for that same frame), but it does
+#' need a materialized data frame, so this trades repeated materialization for
+#' one. Note this is a *separate* DBI connection from the one duckplyr uses;
+#' it exists only for the duration of the chain.
+#'
+#' Usage mirrors the in-place form, and the input is returned unchanged:
+#'   cases <- validate_in_duckdb(cases, \(tbl) tbl |> col_vals_not_null(idncase))
+#'
+#' Only for validations DuckDB can express. `col_vals_expr()` takes an R
+#' expression and is deliberately left running in R.
+validate_in_duckdb <- function(df, chain) {
+  con <- DBI::dbConnect(duckdb::duckdb())
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+
+  duckdb::duckdb_register(con, "pb_tbl", as.data.frame(df))
+  chain(dplyr::tbl(con, "pb_tbl"))
+
+  invisible(df)
+}
+
 #' Announce which block of a script is running, with the resident size of the
 #' R session. The workflow prints machine-wide memory alongside this, so
 #' between the two a run that dies without an R error still says where and on

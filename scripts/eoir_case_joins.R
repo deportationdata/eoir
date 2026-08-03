@@ -84,6 +84,7 @@ if (n_after_case < n_before_case * 0.99) {
 rm(case_tbl)
 gc()
 
+log_step("case_joins: zip lookup")
 zip_lookup <- read_tmp("tmp/zip_lookup.parquet")
 
 n_before_zip <- n_rows(cases)
@@ -96,7 +97,8 @@ cases <- cases |>
   ) |>
   select(-alien_zipcode)
 
-cases |>
+log_step("case_joins: validate zip merge")
+validate_in_duckdb(cases, \(tbl) tbl |>
   row_count_match(n_before_zip) |>
   # Zip merge should not introduce too many NAs
   # col_vals_not_null(
@@ -118,7 +120,7 @@ cases |>
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
-  invisible()
+  invisible())
 
 log_step("case_joins: appeals")
 appeals_by_case <-
@@ -246,6 +248,7 @@ cases <-
 rm(charges_by_case)
 gc()
 
+log_step("case_joins: decision code lookups")
 other_comp_code_lookup <-
   read_tmp("tmp/other_comp_code_lookup.parquet")
 
@@ -265,6 +268,7 @@ cases <-
     relationship = "many-to-one"
   )
 
+log_step("case_joins: case_outcome + decision defaults")
 cases <-
   cases |>
   mutate(
@@ -289,6 +293,7 @@ cases <-
   ) |>
   select(-dec_code, -other_comp, -other_completion)
 
+log_step("case_joins: custody/asylum recodes")
 # Recode custody and asylum claim type codes to human-readable labels
 cases <-
   cases |>
@@ -541,7 +546,8 @@ cases <- cases |>
   )
 
 # Validate final assembled dataset
-cases |>
+log_step("case_joins: validate joined dataset")
+validate_in_duckdb(cases, \(tbl) tbl |>
   col_vals_not_null(
     idncase,
     actions = action_levels(warn_at = 0.005, stop_at = 0.01)
@@ -712,7 +718,7 @@ cases |>
     preconditions = \(x) dplyr::filter(x, !is.na(custody_at_appeal_code)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
-  invisible()
+  invisible())
 
 log_step("case_joins: derived columns")
 cases <-
