@@ -35,14 +35,14 @@ check <- function(label, ok) {
   }
 }
 
-cat("\n[1/4] coalesce() is a drop-in for replace_na()\n")
+cat("\n[1/5] coalesce() is a drop-in for replace_na()\n")
 x <- c("DENY", NA, "GRANT", "")
 check(
   "identical on a character column, empty string included",
   identical(replace_na(x, "No application"), coalesce(x, "No application"))
 )
 
-cat("\n[2/4] a label join is a drop-in for recode_values()\n")
+cat("\n[2/5] a label join is a drop-in for recode_values()\n")
 set.seed(7)
 n <- 50000
 codes <- data.frame(
@@ -81,7 +81,7 @@ check(
   any(codes$custody_code %in% "Z") && any(is.na(codes$custody_code))
 )
 
-cat("\n[3/4] the wide-frame script uses neither\n")
+cat("\n[3/5] the wide-frame script uses neither\n")
 src <- readLines("scripts/eoir_case_joins.R", warn = FALSE)
 src <- src[!grepl("^\\s*#", src)]
 for (verb in c("replace_na", "recode_values")) {
@@ -90,7 +90,7 @@ for (verb in c("replace_na", "recode_values")) {
   for (l in utils::head(hits, 2)) cat("         ", trimws(l), "\n")
 }
 
-cat("\n[4/4] row_count_match() copes with a lazy table\n")
+cat("\n[4/5] row_count_match() copes with a lazy table\n")
 # nrow() is NA on a dbplyr handle, which made this helper fail with "missing
 # value where TRUE/FALSE needed" once a validation chain ran against DuckDB.
 source("scripts/utilities.R")
@@ -109,6 +109,37 @@ check(
   tryCatch({ row_count_match(lazy, 9L); FALSE },
            error = function(e) grepl("expected 9 rows, got 2500", conditionMessage(e)))
 )
+
+cat("\n[5/5] validate_in_duckdb() hands over the frame as it actually is\n")
+# The tidier-looking bridge would be duckplyr's own relation via last_rel(),
+# but that returns a stale relation: on a frame built with filter() then
+# mutate() it reports only the pre-mutate columns. Validating it would check
+# the wrong data and say nothing. compute_parquet() reflects the real frame.
+lz <- duckplyr::as_duckdb_tibble(
+  data.frame(a = 1:20000, b = sample(letters, 20000, replace = TRUE),
+             stringsAsFactors = FALSE),
+  prudence = "lavish"
+) |>
+  dplyr::filter(a > 10) |>
+  dplyr::mutate(flag = a %% 2L, derived = paste0(b, "!"))
+
+stale <- tryCatch(
+  {
+    duckdb:::rel_to_view(duckplyr::last_rel(), "main", "stale_v", TRUE)
+    colnames(dplyr::tbl(con, "stale_v"))
+  },
+  error = function(e) NA_character_
+)
+check(
+  "last_rel() really is stale (why we do not use it)",
+  isTRUE(is.na(stale[1])) || !all(c("flag", "derived") %in% stale)
+)
+
+seen <- NULL
+validate_in_duckdb(lz, function(tbl) { seen <<- colnames(tbl); invisible(tbl) })
+check("post-mutate columns reach the validation", all(c("flag", "derived") %in% seen))
+check("no column is lost", setequal(seen, colnames(lz)))
+check("temp handoff files are cleaned up", length(list.files("tmp", "^validate_")) == 0)
 
 cat("\n")
 if (length(failures)) {

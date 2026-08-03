@@ -58,22 +58,49 @@ configure_duckdb_memory()
 #' pushes `tbl_dbi` validations down to SQL. Pass/fail counts are identical, so
 #' the warn/stop thresholds behave exactly as before.
 #'
-#' `duckdb_register()` is zero-copy (+12MB for that same frame), but it does
-#' need a materialized data frame, so this trades repeated materialization for
-#' one. Note this is a *separate* DBI connection from the one duckplyr uses;
-#' it exists only for the duration of the chain.
+#' A lazy duckplyr frame is handed over with compute_parquet(), which writes it
+#' from DuckDB without building an R copy. That matters: as.data.frame() on the
+#' ~180-column `cases` frame cost 30GB of R heap and was what pushed the runner
+#' over. Via parquet the same validation costs a couple of hundred MB.
+#'
+#' duckplyr's own relation would be the tidier bridge, but last_rel() is a
+#' debugging aid and returns a *stale* relation — on a frame built with
+#' filter() then mutate() it reported only the pre-mutate columns, which would
+#' silently validate the wrong data. compute_parquet() reflects the frame as it
+#' actually is.
+#'
+#' An already-materialized frame skips the round trip and is registered
+#' directly, which duckdb does zero-copy.
 #'
 #' Usage mirrors the in-place form, and the input is returned unchanged:
-#'   cases <- validate_in_duckdb(cases, \(tbl) tbl |> col_vals_not_null(idncase))
+#'   validate_in_duckdb(cases, \(tbl) tbl |> col_vals_not_null(idncase))
 #'
 #' Only for validations DuckDB can express. `col_vals_expr()` takes an R
-#' expression and is deliberately left running in R.
+#' expression and is deliberately left running in R. Note also that anything
+#' relying on nrow() sees NA through a lazy handle — see row_count_match().
 validate_in_duckdb <- function(df, chain) {
   con <- DBI::dbConnect(duckdb::duckdb())
   on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
-  duckdb::duckdb_register(con, "pb_tbl", as.data.frame(df))
-  chain(dplyr::tbl(con, "pb_tbl"))
+  if (inherits(df, "duckplyr_df")) {
+    dir.create("tmp", showWarnings = FALSE)
+    path <- tempfile("validate_", tmpdir = "tmp", fileext = ".parquet")
+    on.exit(unlink(path), add = TRUE)
+
+    duckplyr::compute_parquet(df, path)
+    tbl <- dplyr::tbl(
+      con,
+      dplyr::sql(sprintf(
+        "SELECT * FROM read_parquet(%s)",
+        DBI::dbQuoteString(con, path)
+      ))
+    )
+  } else {
+    duckdb::duckdb_register(con, "pb_tbl", as.data.frame(df))
+    tbl <- dplyr::tbl(con, "pb_tbl")
+  }
+
+  chain(tbl)
 
   invisible(df)
 }
