@@ -240,7 +240,21 @@ clean_eoir_cols <- function(df) {
   n_seen <- 0
 
   repair <- function(x) {
-    hit <- stringi::stri_detect_regex(x, DIRTY_CELL_REGEX)
+    # Two-stage detection. Every dirty cell contains whitespace or a control
+    # character, and almost no EOIR value does — they are ids, codes and
+    # dates. A single character-class scan rules most of them out far more
+    # cheaply than the full alternation, which then only runs on the
+    # candidates. Same cells flagged, ~1.55x faster over 4M values, and this
+    # runs over roughly 700M of them across the seven table scripts.
+    candidate <- stringi::stri_detect_charclass(x, "[\\p{Z}\\p{C}]")
+    candidate[is.na(candidate)] <- FALSE
+    hit <- candidate
+    if (any(candidate)) {
+      hit[candidate] <- stringi::stri_detect_regex(
+        x[candidate],
+        DIRTY_CELL_REGEX
+      )
+    }
     hit[is.na(hit)] <- FALSE
     n_dirty <<- n_dirty + sum(hit)
     n_seen <<- n_seen + length(hit)
