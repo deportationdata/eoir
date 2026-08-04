@@ -745,6 +745,31 @@ validate_in_duckdb(cases, \(tbl) tbl |>
   ) |>
   invisible())
 
+# Row filter for the released dataset, applied here rather than at the end.
+# Everything below — title casing, the case-length columns, the relocate — is
+# computed per row and then discarded for any case this drops, and it runs in
+# R. Filtering first also means the materialization below only pulls the rows
+# that survive. filter() is native, so DuckDB does this one.
+log_step("case_joins: filter to the released cases")
+n_before_filter <- n_rows(cases)
+cases <-
+  cases |>
+  filter(
+    # keep data after IIRIRA which changed many codes in the data
+    !is.na(nta_date) & nta_date >= as.Date("1997-10-01"),
+    # keep
+    # * 1. standard removal proceedings (all new such cases will be RMV after 1996)
+    # * 2. withholding-only proceedings (WHO)
+    case_type_code %in% c("RMV", "WHO")
+  )
+n_after_filter <- n_rows(cases)
+message(sprintf(
+  "released-case filter: %d -> %d rows (%d dropped)",
+  n_before_filter,
+  n_after_filter,
+  n_before_filter - n_after_filter
+))
+
 log_step("case_joins: derived columns")
 
 EOIR_ABBREVIATIONS <- c(
@@ -1037,18 +1062,9 @@ cases <-
     bond_hearing_request_date_last_to_bond_completion_date_last_days
   )
 
-log_step("case_joins: final filter and sort")
-# filter cases for final dataset
+log_step("case_joins: final select and sort")
 cases <-
   cases |>
-  filter(
-    # keep data after IIRIRA which changed many codes in the data
-    !is.na(nta_date) & nta_date >= as.Date("1997-10-01"),
-    # keep
-    # * 1. standard removal proceedings (all new such cases will be RMV after 1996)
-    # * 2. withholding-only proceedings (WHO)
-    case_type_code %in% c("RMV", "WHO")
-  ) |>
   select(-case_type_code, -case_type) |>
   # joins reorder rows, so sort explicitly: the released file should be
   # byte-stable between runs rather than reshuffling on every rebuild
