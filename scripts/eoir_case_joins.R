@@ -301,7 +301,7 @@ cases <-
       ),
       # coalesce() rather than tidyr's replace_na(): identical on a character
       # column, but replace_na() has no DuckDB translation, so this mutate
-      # dropped back into R and copied the whole ~180-column frame. Measured on
+      # dropped back into R and copied the whole 119-column frame. Measured on
       # 400k x 194: +1812MB for replace_na, +0MB for coalesce.
       \(x) coalesce(x, "No application")
     )
@@ -312,7 +312,7 @@ log_step("case_joins: custody/asylum recodes")
 # Recode custody and asylum claim type codes to human-readable labels.
 #
 # Joined from a label table rather than recode_values(), which has no DuckDB
-# translation and so copied the whole ~180-column frame in R (+1254MB on a
+# translation and so copied the whole 119-column frame in R (+1254MB on a
 # 400k x 194 fixture; nothing at all this way). recode_values() returns NA for
 # a code that matches nothing and for NA, which is exactly what the left joins
 # give, and this is how the script resolves every other code column below.
@@ -806,12 +806,16 @@ TITLE_CASE_EXCLUDE <- c(
 )
 
 cases <- as.data.frame(cases)
+# The single largest memory moment in the pipeline — see the helper. Reported
+# from the kernel's high-water mark rather than counting rows first, which on
+# a lazy frame would re-run the entire join chain.
+report_memory_peak("materializing the joined frame")
 
 # Everything from here on is R-only work — title casing, difftime, renaming,
 # column ordering — so there is nothing left for DuckDB to accelerate. But
 # while duckplyr's methods are in place every dplyr verb still converts the
 # whole frame into DuckDB and reads it back, which on a materialized
-# 12.5M x ~180 frame is a full copy per verb. Measured on 600k x 82:
+# 12.5M x 119 frame is a full copy per verb. Measured on 600k x 82:
 # +857MB and 4.95s with the methods overwritten, +157MB and 1.17s without —
 # and at full scale that difference is the ~25GB that killed the runner
 # between the title casing and the case-length columns.

@@ -60,7 +60,7 @@ configure_duckdb_memory()
 #'
 #' A lazy duckplyr frame is handed over with compute_parquet(), which writes it
 #' from DuckDB without building an R copy. That matters: as.data.frame() on the
-#' ~180-column `cases` frame cost 30GB of R heap and was what pushed the runner
+#' 119-column `cases` frame cost 30GB of R heap and was what pushed the runner
 #' over. Via parquet the same validation costs a couple of hundred MB.
 #'
 #' duckplyr's own relation would be the tidier bridge, but last_rel() is a
@@ -103,6 +103,55 @@ validate_in_duckdb <- function(df, chain) {
   chain(tbl)
 
   invisible(df)
+}
+
+#' Report how close materializing a frame came to exhausting the machine.
+#'
+#' eoir_case_joins.R pulls the joined frame into R in one go, and that single
+#' step is the pipeline's memory peak — 61.6GB of a 64.3GB runner on the last
+#' run, 96%. Nothing is holding a second copy; the frame really is that large.
+#' Measured alternatives did not help: handing it over as parquet peaked
+#' higher, and shrinking DuckDB's budget first changed nothing. Short of
+#' processing the tail in row chunks, that peak is what it is.
+#'
+#' When it does run out, the runner is killed with no R error and the log
+#' simply stops. So record the high-water mark on every run: VmHWM is the
+#' kernel's own measurement, not an estimate, and watching it creep toward
+#' MemTotal gives months of warning before it becomes a dead job.
+report_memory_peak <- function(label) {
+  status <- tryCatch(readLines("/proc/self/status"), error = function(e) NULL)
+  meminfo <- tryCatch(readLines("/proc/meminfo"), error = function(e) NULL)
+  hwm_line <- grep("^VmHWM:", status, value = TRUE)
+  tot_line <- grep("^MemTotal:", meminfo, value = TRUE)
+  if (length(hwm_line) != 1L || length(tot_line) != 1L) {
+    return(invisible(NULL))
+  }
+
+  peak_gb <- as.numeric(sub("\\D*(\\d+).*", "\\1", hwm_line)) / 1024^2
+  total_gb <- as.numeric(sub("\\D*(\\d+).*", "\\1", tot_line)) / 1024^2
+  used <- peak_gb / total_gb
+
+  message(sprintf(
+    "memory peak after %s: %.1fGB of %.1fGB (%.0f%%), headroom %.1fGB",
+    label,
+    peak_gb,
+    total_gb,
+    100 * used,
+    total_gb - peak_gb
+  ))
+  if (used > 0.9) {
+    warning(sprintf(
+      paste0(
+        "%s peaked at %.0f%% of this machine's memory. The next time the input ",
+        "grows past that, the runner is killed here with no R error. Either give ",
+        "the job more memory, or process the tail of eoir_case_joins.R in row ",
+        "chunks so the whole frame is never held at once."
+      ),
+      label,
+      100 * used
+    ), call. = FALSE)
+  }
+  invisible(used)
 }
 
 #' Announce which block of a script is running, with the resident size of the

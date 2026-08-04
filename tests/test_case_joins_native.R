@@ -1,4 +1,4 @@
-# eoir_case_joins.R carries the widest frame in the pipeline (~180 columns), so
+# eoir_case_joins.R carries the widest frame in the pipeline (119 columns), so
 # any verb DuckDB cannot translate drops the whole thing back into R and copies
 # it. Two did: tidyr's replace_na() and dplyr's recode_values(). On a
 # 400k x 194 fixture they cost +1812MB and +1254MB of R heap, and gc() did not
@@ -143,7 +143,7 @@ check("temp handoff files are cleaned up", length(list.files("tmp", "^validate_"
 
 cat("\n[6/7] the title-case loop matches the across() it replaces\n")
 # across() builds every rewritten column before assigning any, which on the
-# ~180-column cases frame held ~100 rewritten character columns alongside the
+# 119-column cases frame held ~100 rewritten character columns alongside the
 # originals and took R past 61GB. The loop is only safe if it selects exactly
 # the same columns and produces exactly the same values.
 is.POSIXct <- function(x) inherits(x, "POSIXct")
@@ -229,7 +229,7 @@ check("excluded columns are untouched",
 
 cat("\n[7/7] nothing needing duckplyr survives methods_restore()\n")
 # The tail of eoir_case_joins.R is R-only work, and leaving duckplyr's methods
-# in place made every verb round-trip the materialized ~180-column frame
+# in place made every verb round-trip the materialized 119-column frame
 # through DuckDB — a full copy each, ~25GB at full scale. methods_restore()
 # turns that off, which is only safe if nothing after it needs duckplyr.
 lines <- readLines("scripts/eoir_case_joins.R", warn = FALSE)
