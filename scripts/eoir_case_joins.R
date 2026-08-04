@@ -751,7 +751,10 @@ validate_in_duckdb(cases, \(tbl) tbl |>
 # R. Filtering first also means the materialization below only pulls the rows
 # that survive. filter() is native, so DuckDB does this one.
 log_step("case_joins: filter to the released cases")
-n_before_filter <- n_rows(cases)
+# No n_rows() around this filter: `cases` is still a lazy relation, so each
+# count executes the entire join chain. The pair of them cost 3.4 minutes on
+# the last run purely to produce a log line. The kept count is free once the
+# frame materializes below.
 cases <-
   cases |>
   filter(
@@ -762,14 +765,6 @@ cases <-
     # * 2. withholding-only proceedings (WHO)
     case_type_code %in% c("RMV", "WHO")
   )
-n_after_filter <- n_rows(cases)
-message(sprintf(
-  "released-case filter: %d -> %d rows (%d dropped)",
-  n_before_filter,
-  n_after_filter,
-  n_before_filter - n_after_filter
-))
-
 log_step("case_joins: derived columns")
 
 EOIR_ABBREVIATIONS <- c(
@@ -832,13 +827,22 @@ title_case_cols <- names(cases)[
       )
     )
 ]
+title_case <- function(x) {
+  # Title-case the distinct values and map back, rather than rewriting every
+  # cell. These are label columns — nationality, language, court and judge
+  # names, decision text — so a 10.8M-row column typically holds a few dozen
+  # distinct values, and the regex work is the whole cost. Measured 57-79x on
+  # such columns, and still 1.3x when every value is distinct, because
+  # unique() and match() cost less than the substitutions they save.
+  u <- unique(x)
+  str_fix_abbreviations(str_to_title(u), abbr = EOIR_ABBREVIATIONS)[match(x, u)]
+}
 for (nm in title_case_cols) {
-  cases[[nm]] <- str_fix_abbreviations(
-    str_to_title(cases[[nm]]),
-    abbr = EOIR_ABBREVIATIONS
-  )
+  cases[[nm]] <- title_case(cases[[nm]])
 }
 gc()
+
+message(sprintf("released-case filter: kept %d rows", nrow(cases)))
 log_step("case_joins: dates + court title case")
 
 cases <-
@@ -853,8 +857,12 @@ cases <-
         bond_court_second,
         bond_court_last
       ),
-      # replace to title case but keep court codes in parentheses uppercase
-      ~ str_replace(.x, "^([^(]+)", \(m) str_to_title(m))
+      # title case but keep the court code in parentheses upper case; there
+      # are only a few hundred courts, so map over the distinct values
+      \(x) {
+        u <- unique(x)
+        str_replace(u, "^([^(]+)", \(m) str_to_title(m))[match(x, u)]
+      }
     )
   ) |>
   rename(

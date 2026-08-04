@@ -196,6 +196,27 @@ by_loop <- by_loop |>
 
 check("selects the same columns as the tidyselect expression",
       identical(sel, c("language", "nationality")))
+
+# The loop maps over distinct values rather than every cell. That is only
+# valid if it is exactly equivalent — including for NA, which unique() keeps.
+title_case_direct <- function(x) str_fix_abbreviations(stringr::str_to_title(x), abbr = AB)
+title_case_unique <- function(x) {
+  u <- unique(x)
+  title_case_direct(u)[match(x, u)]
+}
+for (cn in c("language", "nationality")) {
+  check(sprintf("unique-mapped title case matches direct on %s", cn),
+        identical(title_case_direct(fixture[[cn]]), title_case_unique(fixture[[cn]])))
+}
+check("the fixture has NAs for the mapping to carry",
+      any(is.na(fixture$language)) && any(is.na(title_case_unique(fixture$language))))
+court_direct <- function(x) stringr::str_replace(x, "^([^(]+)", \(m) stringr::str_to_title(m))
+court_unique <- function(x) { u <- unique(x); court_direct(u)[match(x, u)] }
+check("unique-mapped court casing matches direct",
+      identical(court_direct(fixture$first_court), court_unique(fixture$first_court)))
+check("an all-distinct column still round-trips",
+      { z <- sprintf("case %05d text", seq_len(2000))
+        identical(title_case_direct(z), title_case_unique(z)) })
 check("identical output", isTRUE(all.equal(as.data.frame(by_across), as.data.frame(by_loop))))
 check("abbreviations survive title casing",
       any(grepl("BIA", by_loop$language, fixed = TRUE)) &&
