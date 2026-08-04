@@ -21,6 +21,15 @@ court_applications_tbl <-
   as_tibble() |>
   clean_eoir_cols()
 
+# The validations, fast_convert() and the renaming below are all R-only work —
+# pointblank has no duckplyr backend, and col_vals_expr() evaluates an R
+# expression. Leaving duckplyr's methods in place makes every internal dplyr
+# call round-trip the whole frame through DuckDB for nothing: measured on
+# 1.2M x 40, that chain costs 47.3s and +3474MB with the methods overwritten
+# versus 20.1s and +538MB without. At full scale it was the pipeline's memory
+# peak, 61.8GB of 64.3GB.
+duckplyr::methods_restore()
+
 # Load lookup tables for validation
 lkp_appln <- read_eoir_lookup("inputs_eoir/tblLookUp_Appln.csv")
 lkp_appl_dec <- read_eoir_lookup("inputs_eoir/tblLookupCourtAppDecisions.csv")
@@ -94,6 +103,10 @@ DEC_PRIORITY <- c(
   "W", # WITHDRAWN
   "M" # NOT ADJUDICATED
 )
+
+
+# Back to duckplyr: the collapse below runs inside DuckDB.
+duckplyr::methods_overwrite()
 
 log_step("applications: rank and sort")
 court_applications_tbl <- court_applications_tbl |>

@@ -232,6 +232,37 @@ cat("\n[7/7] nothing needing duckplyr survives methods_restore()\n")
 # in place made every verb round-trip the materialized 119-column frame
 # through DuckDB — a full copy each, ~25GB at full scale. methods_restore()
 # turns that off, which is only safe if nothing after it needs duckplyr.
+# Every table script also restores plain dplyr around its validations, which
+# are R-only work; leaving duckplyr's methods on made pointblank round-trip
+# the whole frame per check (+3474MB vs +538MB on 1.2M x 40). Each script that
+# then does a DuckDB collapse must switch back, or the collapse silently runs
+# as plain dplyr — correct, but without the speedup the migration exists for.
+for (sc in Sys.glob("scripts/eoir_*.R")) {
+  src <- readLines(sc, warn = FALSE)
+  code <- src[!grepl("^\\s*#", src)]
+  n_restore <- length(grep("methods_restore\\(\\)", code))
+  if (n_restore == 0L) next
+  at <- grep("methods_restore\\(\\)", code)[1]
+  tail_code <- code[seq(at + 1L, length(code))]
+  # only work *after* the restore matters: anything before it already ran in
+  # duckplyr. eoir_case_joins.R does all its joins first and never goes back.
+  up_to_overwrite <- if (any(grepl("methods_overwrite\\(\\)", tail_code))) {
+    tail_code[seq_len(grep("methods_overwrite\\(\\)", tail_code)[1] - 1L)]
+  } else {
+    tail_code
+  }
+  stranded <- grep("summarise\\(|left_join\\(|inner_join\\(|\\bdistinct\\(", up_to_overwrite, value = TRUE)
+  check(
+    sprintf("%s leaves no DuckDB collapse stranded in plain dplyr", basename(sc)),
+    length(stranded) == 0L
+  )
+  for (l in utils::head(stranded, 2)) cat("         stranded:", trimws(l), "\n")
+  check(
+    sprintf("%s restores exactly once", basename(sc)),
+    n_restore == 1L
+  )
+}
+
 lines <- readLines("scripts/eoir_case_joins.R", warn = FALSE)
 restore_at <- grep("duckplyr::methods_restore\\(\\)", lines)
 check("methods_restore() is called exactly once", length(restore_at) == 1)
