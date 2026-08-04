@@ -246,7 +246,16 @@ clean_eoir_cols <- function(df) {
     # cheaply than the full alternation, which then only runs on the
     # candidates. Same cells flagged, ~1.55x faster over 4M values, and this
     # runs over roughly 700M of them across the seven table scripts.
-    candidate <- stringi::stri_detect_charclass(x, "[\\p{Z}\\p{C}]")
+    #
+    # stri_detect_charclass() rejects invalid UTF-8 outright, and the EOIR
+    # files contain some — it errors on the whole vector for one bad byte,
+    # where stri_detect_regex() just reports those cells as not matching. So
+    # a column it cannot scan falls back to checking every cell, which is
+    # what this did before the two-stage split.
+    candidate <- tryCatch(
+      stringi::stri_detect_charclass(x, "[\\p{Z}\\p{C}]"),
+      error = function(e) rep(TRUE, length(x))
+    )
     candidate[is.na(candidate)] <- FALSE
     hit <- candidate
     if (any(candidate)) {

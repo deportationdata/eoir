@@ -119,6 +119,28 @@ check("non-character columns unchanged",
       identical(out[c("int", "dbl", "lgl", "dte")], mixed[c("int", "dbl", "lgl", "dte")]))
 check("character column still cleaned", identical(out$chr, c("a", "b")))
 
+cat("\n[5] invalid UTF-8 in the input is tolerated\n")
+# The EOIR files contain invalid UTF-8. clean_eoir_cols() detects dirty cells
+# with a cheap character-class scan first, and stri_detect_charclass() errors
+# on the whole vector for a single bad byte where stri_detect_regex() does
+# not. A run died on exactly this, so it is pinned here.
+bad_byte <- rawToChar(as.raw(c(0x41, 0xFF, 0x42)))
+nasty_utf8 <- data.frame(
+  a = c("clean", bad_byte, " lead", "a  b", NA),
+  b = c(bad_byte, "x  y", "ok", "", "z"),
+  stringsAsFactors = FALSE
+)
+got_utf8 <- tryCatch(clean_eoir_cols(nasty_utf8), error = function(e) e)
+check("does not error on invalid UTF-8", !inherits(got_utf8, "error"))
+if (!inherits(got_utf8, "error")) {
+  check("still repairs the dirty cells in that column",
+        identical(got_utf8$a, c("clean", bad_byte, "lead", "a b", NA)))
+  check("and in a column whose first value is the bad one",
+        identical(got_utf8$b, c(bad_byte, "x y", "ok", NA, "z")))
+  check("the invalid value is passed through untouched",
+        identical(got_utf8$a[2], bad_byte))
+}
+
 cat("\n")
 if (length(failures)) {
   stop(sprintf(
