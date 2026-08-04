@@ -80,6 +80,7 @@ cases_tbl <-
   as_tibble() |>
   clean_eoir_cols()
 
+log_step("case: zipcode preprocessing")
 # Pre-process ALIEN_ZIPCODE: strip ZIP+4 suffixes and pad leading zeros
 cases_tbl <- cases_tbl |>
   mutate(
@@ -166,6 +167,7 @@ cases_tbl |>
   ) |>
   invisible()
 
+log_step("case: type conversion")
 cases_tbl <- fast_convert(
   cases_tbl,
   list(
@@ -241,6 +243,7 @@ cases_tbl |>
   ) |>
   invisible()
 
+log_step("case: write parquet")
 arrow::write_parquet(
   cases_tbl,
   "tmp/cases_tmp.parquet",

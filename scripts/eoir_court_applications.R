@@ -25,6 +25,7 @@ court_applications_tbl <-
 lkp_appln <- read_eoir_lookup("inputs_eoir/tblLookUp_Appln.csv")
 lkp_appl_dec <- read_eoir_lookup("inputs_eoir/tblLookupCourtAppDecisions.csv")
 
+log_step("applications: pre-transform validation")
 # Validate before transforms
 court_applications_tbl |>
   col_vals_not_null(
@@ -60,6 +61,7 @@ court_applications_tbl |>
   ) |>
   invisible()
 
+log_step("applications: type conversion")
 court_applications_tbl <- fast_convert(
   court_applications_tbl,
   list(
@@ -93,6 +95,7 @@ DEC_PRIORITY <- c(
   "M" # NOT ADJUDICATED
 )
 
+log_step("applications: rank and sort")
 court_applications_tbl <- court_applications_tbl |>
   mutate(
     dec_rank = coalesce(match(appl_dec, rev(DEC_PRIORITY)), 0L),
@@ -130,6 +133,7 @@ last_decision_for <- function(appl_code_value, column_name) {
     )
 }
 
+log_step("applications: six decision joins")
 court_applications_by_case <-
   court_applications_tbl |>
   distinct(idncase) |>
@@ -180,6 +184,7 @@ court_applications_by_case <-
     )
   )
 
+log_step("applications: validate collapsed")
 court_applications_by_case |>
   rows_distinct(idncase) |>
   # decisions must be valid decision labels (or NA when no such application);
@@ -199,6 +204,7 @@ court_applications_by_case |>
   ) |>
   invisible()
 
+log_step("applications: write parquet")
 arrow::write_parquet(
   court_applications_by_case,
   "tmp/court_applications_cases.parquet",
