@@ -141,7 +141,7 @@ check("post-mutate columns reach the validation", all(c("flag", "derived") %in% 
 check("no column is lost", setequal(seen, colnames(lz)))
 check("temp handoff files are cleaned up", length(list.files("tmp", "^validate_")) == 0)
 
-cat("\n[6/6] the title-case loop matches the across() it replaces\n")
+cat("\n[6/7] the title-case loop matches the across() it replaces\n")
 # across() builds every rewritten column before assigning any, which on the
 # ~180-column cases frame held ~100 rewritten character columns alongside the
 # originals and took R past 61GB. The loop is only safe if it selects exactly
@@ -205,6 +205,27 @@ check("court codes stay upper case inside parentheses",
 check("excluded columns are untouched",
       identical(by_loop$first_judge_name, fixture$first_judge_name) &&
         identical(by_loop$state, fixture$state))
+
+cat("\n[7/7] nothing needing duckplyr survives methods_restore()\n")
+# The tail of eoir_case_joins.R is R-only work, and leaving duckplyr's methods
+# in place made every verb round-trip the materialized ~180-column frame
+# through DuckDB — a full copy each, ~25GB at full scale. methods_restore()
+# turns that off, which is only safe if nothing after it needs duckplyr.
+lines <- readLines("scripts/eoir_case_joins.R", warn = FALSE)
+restore_at <- grep("duckplyr::methods_restore\\(\\)", lines)
+check("methods_restore() is called exactly once", length(restore_at) == 1)
+if (length(restore_at) == 1) {
+  after <- lines[(restore_at + 1):length(lines)]
+  after <- after[!grepl("^\\s*#", after)]
+  needs_duckdb <- grep("read_tmp\\(|validate_in_duckdb\\(|n_rows\\(|compute_parquet\\(", after, value = TRUE)
+  check("no duckplyr-dependent call after it", length(needs_duckdb) == 0)
+  for (l in utils::head(needs_duckdb, 3)) cat("         after restore:", trimws(l), "\n")
+  before <- lines[seq_len(restore_at - 1)]
+  check(
+    "the DuckDB work all happens before it",
+    any(grepl("validate_in_duckdb\\(", before)) && any(grepl("read_tmp\\(", before))
+  )
+}
 
 cat("\n")
 if (length(failures)) {

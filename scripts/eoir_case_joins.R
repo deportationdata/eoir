@@ -786,6 +786,17 @@ TITLE_CASE_EXCLUDE <- c(
 )
 
 cases <- as.data.frame(cases)
+
+# Everything from here on is R-only work — title casing, difftime, renaming,
+# column ordering — so there is nothing left for DuckDB to accelerate. But
+# while duckplyr's methods are in place every dplyr verb still converts the
+# whole frame into DuckDB and reads it back, which on a materialized
+# 12.5M x ~180 frame is a full copy per verb. Measured on 600k x 82:
+# +857MB and 4.95s with the methods overwritten, +157MB and 1.17s without —
+# and at full scale that difference is the ~25GB that killed the runner
+# between the title casing and the case-length columns.
+duckplyr::methods_restore()
+
 title_case_cols <- names(cases)[
   vapply(cases, is.character, logical(1)) &
     !Reduce(
