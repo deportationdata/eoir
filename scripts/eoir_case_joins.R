@@ -951,8 +951,7 @@ cases <-
     # * 1. standard removal proceedings (all new such cases will be RMV after 1996)
     # * 2. withholding-only proceedings (WHO)
     case_type_code %in% c("RMV", "WHO")
-  ) |>
-  select(-case_type_code, -case_type)
+  )
 
 arrow::write_parquet(
   cases,
