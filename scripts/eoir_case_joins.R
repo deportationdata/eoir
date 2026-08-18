@@ -67,51 +67,13 @@ if (nrow(cases) < n_before_case * 0.99) {
 rm(case_tbl)
 gc()
 
-# --- ZIP → county, state lookup for EOIR respondent geography ---
-#
-# The ZCTA → county/place allocation is computed and published by
-# deportationdata/us-shapefiles (code/zip_xwalk.R there) on the geocorr /
-# Census tab20 inputs; this pipeline only reads the built crosswalk, so an
-# upstream fix there — a geocorr vintage refresh, an encoding correction —
-# arrives on the next run with no code change here.
-#
-# MEASUREMENT NOTES:
-#   - alien_zipcode in EOIR data is the address of record with the immigration
-#     court — not necessarily a residential address. It may reflect an attorney's
-#     office, a detention facility, a sponsor's address, or a stale address from
-#     initial filing. Attorney addresses cluster near immigration courts,
-#     potentially inflating geographic concentration in court cities.
-#   - ZCTAs (ZIP Code Tabulation Areas) are Census constructs, not identical to
-#     USPS ZIP codes. PO Box-only ZIPs, military ZIPs (APO/FPO), and ZIPs
-#     created after 2020 have no ZCTA match and will be NA after joining.
-#   - County and place assignment uses POPULATION-WEIGHTED allocation from
-#     geocorr (largest population overlap). For ZCTAs straddling boundaries,
-#     the county/place with the highest population share is assigned.
-#   - Territories (AS, GU, MP, VI) are not in geocorr; for these, county and
-#     place are sourced from Census 2020 relationship files using area-weighted
-#     allocation.
-#   - 2020 Census geography is applied to all cases regardless of year. Match
-#     rates may degrade for older cases due to ZIP code churn.
-#   - place_fips_code is the full 7-digit Census place GEOID: 2-digit state
-#     FIPS + 5-digit place code. County and place are assigned independently
-#     (each by largest population share), so a ZCTA straddling a state line
-#     can have its place in a different state than its county; the GEOID's
-#     state prefix follows the place's own state and may differ from
-#     state_fips_code (which follows the county). In the 2022 geocorr vintage
-#     this affects exactly one ZCTA (97635: county Modoc, CA 06; place New
-#     Pine Creek CDP, OR 41) — correct behavior, not a join error.
-
-# us-shapefiles tracks the built crosswalk with Git LFS:
-# media.githubusercontent.com/media/... resolves the LFS object, while plain
-# raw.githubusercontent.com would return only the ~130-byte pointer text
-# (which read_parquet then rejects as not a parquet file).
+# --- ZIP → county, state lookup for EOIR noncitizen geography ---
 zip_lookup <-
   arrow::read_parquet(paste0(
     "https://media.githubusercontent.com/media/deportationdata/",
     "us-shapefiles/main/data/zip-xwalk.parquet"
   )) |>
-  # us-shapefiles names its columns geoid-first; rename to the schema the
-  # rest of this pipeline (and the published data) has always used.
+  # us-shapefiles names its columns geoid-first
   transmute(
     zcta,
     state = stusps,
@@ -122,19 +84,11 @@ zip_lookup <-
     place_fips_code = place_geoid
   )
 
-# Non-ASCII string literals in .R source parse with Encoding() "unknown", not
-# "UTF-8" — in a non-UTF-8 session locale (e.g. a runner set to C), `==`
-# against an arrow-decoded (Encoding() "UTF-8") string then compares unequal
-# byte-for-byte-identical text. Tag the literal explicitly so the encoding
-# canary below doesn't depend on the machine's locale.
 utf8_literal <- function(x) {
   Encoding(x) <- "UTF-8"
   x
 }
 
-# Validate the fetched crosswalk before joining it onto cases: it is an
-# external build artifact, so a bad upstream publish should fail here rather
-# than silently propagate into the released data.
 zip_lookup |>
   col_vals_not_null(zcta) |>
   col_vals_not_null(state) |>
@@ -146,7 +100,7 @@ zip_lookup |>
   col_vals_regex(county_fips_code, "^\\d{5}$") |>
   col_vals_regex(place_fips_code, "^\\d{7}$", na_pass = TRUE) |>
   rows_distinct(zcta) |>
-  # County and place names should not end with state abbreviations
+  # county and place names should not end with state abbreviations
   col_vals_expr(
     ~ !str_detect(county, ",? [A-Z]{2}$"),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
@@ -155,16 +109,12 @@ zip_lookup |>
     ~ is.na(place) | !str_detect(place, ",? [A-Z]{2}$"),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
-  # Encoding guards: names must be valid UTF-8 with no U+FFFD replacement
-  # character (U+FFFD would appear if the upstream build ever misread a
-  # latin1 geocorr file as UTF-8)
+  # names must be valid UTF-8 with no U+FFFD replacement
   col_vals_expr(~ validUTF8(county) & !str_detect(county, "\uFFFD")) |>
   col_vals_expr(
     ~ is.na(place) | (validUTF8(place) & !str_detect(place, "\uFFFD"))
   ) |>
-  # Encoding canary: at least one PR municipio must retain its diacritic
-  # ("Añasco Municipio"). Catches mojibake regressions upstream that the
-  # U+FFFD check alone cannot see.
+  # Check PR municipios retain diacritics
   col_vals_gte(
     n_anasco,
     1,
@@ -832,8 +782,7 @@ cases <-
         !contains("charge_section") &
         !contains("fips") &
         !contains("state") &
-        # county/place names arrive pre-cased from geocorr/Census;
-        # str_to_title would mangle DeKalb, McLean, O'Brien, "Baltimore city"
+        # county/place names are cased in geocorr/Census
         !any_of(c("county", "place")),
       ~ str_to_title(.x) |>
         make_abbr_caps(
