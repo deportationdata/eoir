@@ -67,7 +67,80 @@ if (nrow(cases) < n_before_case * 0.99) {
 rm(case_tbl)
 gc()
 
-zip_lookup <- arrow::read_parquet("tmp/zip_lookup.parquet")
+# --- ZIP → county, state lookup for EOIR noncitizen geography ---
+zip_lookup <-
+  arrow::read_parquet(paste0(
+    "https://media.githubusercontent.com/media/deportationdata/",
+    "us-shapefiles/main/data/zip-xwalk.parquet"
+  )) |>
+  # us-shapefiles names its columns geoid-first
+  transmute(
+    zcta,
+    state = stusps,
+    state_fips_code = str_sub(county_geoid, 1, 2),
+    county,
+    county_fips_code = county_geoid,
+    place,
+    place_fips_code = place_geoid
+  )
+
+utf8_literal <- function(x) {
+  Encoding(x) <- "UTF-8"
+  x
+}
+
+zip_lookup |>
+  col_vals_not_null(zcta) |>
+  col_vals_not_null(state) |>
+  col_vals_not_null(state_fips_code) |>
+  col_vals_not_null(county) |>
+  col_vals_not_null(county_fips_code) |>
+  col_vals_regex(zcta, "^\\d{5}$") |>
+  col_vals_regex(state_fips_code, "^\\d{2}$") |>
+  col_vals_regex(county_fips_code, "^\\d{5}$") |>
+  col_vals_regex(place_fips_code, "^\\d{7}$", na_pass = TRUE) |>
+  rows_distinct(zcta) |>
+  # county and place names should not end with state abbreviations
+  col_vals_expr(
+    ~ !str_detect(county, ",? [A-Z]{2}$"),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_expr(
+    ~ is.na(place) | !str_detect(place, ",? [A-Z]{2}$"),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  # names must be valid UTF-8 with no U+FFFD replacement
+  col_vals_expr(~ validUTF8(county) & !str_detect(county, "\uFFFD")) |>
+  col_vals_expr(
+    ~ is.na(place) | (validUTF8(place) & !str_detect(place, "\uFFFD"))
+  ) |>
+  # Check PR municipios retain diacritics
+  col_vals_gte(
+    n_anasco,
+    1,
+    preconditions = \(x) {
+      tibble(n_anasco = sum(x$county == utf8_literal("Añasco Municipio")))
+    }
+  ) |>
+  col_vals_in_set(
+    state,
+    c(state.abb, "DC", "AS", "GU", "MP", "PR", "VI"),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_between(
+    n_states,
+    left = 51,
+    right = 56,
+    preconditions = \(x) tibble(n_states = n_distinct(x$state))
+  ) |>
+  # 2020 Census has ~33,120 ZCTAs
+  col_vals_between(
+    n_zcta,
+    left = 32000,
+    right = 34000,
+    preconditions = \(x) tibble(n_zcta = n_distinct(x$zcta))
+  ) |>
+  invisible()
 
 n_before_zip <- nrow(cases)
 
@@ -98,6 +171,12 @@ cases |>
   col_vals_regex(
     county_fips_code,
     "^\\d{5}$",
+    na_pass = TRUE,
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  col_vals_regex(
+    place_fips_code,
+    "^\\d{7}$",
     na_pass = TRUE,
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
@@ -702,7 +781,9 @@ cases <-
         !contains("judge_name") &
         !contains("charge_section") &
         !contains("fips") &
-        !contains("state"),
+        !contains("state") &
+        # county/place names are cased in geocorr/Census
+        !any_of(c("county", "place")),
       ~ str_to_title(.x) |>
         make_abbr_caps(
           abbr = c(
