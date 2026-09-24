@@ -13,6 +13,15 @@ cases <-
     }
   ))
 
+cases <- if (any(nchar(names(cases)) > 32)) {
+  cases |>
+    rename_with(
+      ~ make.unique(abbreviate(.x, minlength = 32, strict = FALSE), sep = "_")
+    )
+} else {
+  cases
+}
+
 haven::write_dta(cases, "data/cases.dta", version = 15)
 
 # use cases.dta

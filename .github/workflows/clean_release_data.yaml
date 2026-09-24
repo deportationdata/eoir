@@ -29,7 +29,6 @@ on:
     branches: [main]
     paths:
       - 'scripts/**'
-      - 'inputs/**'
       - 'renv.lock'
       - '.github/workflows/clean_release_data.yaml'
 
@@ -75,7 +74,6 @@ jobs:
         run: |
           set -x
           mkdir -p data
-          Rscript scripts/geography_join.R
           Rscript scripts/eoir_appeals.R
           Rscript scripts/eoir_associated_bond.R
           Rscript scripts/eoir_case.R

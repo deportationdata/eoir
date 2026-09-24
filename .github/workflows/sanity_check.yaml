@@ -42,6 +42,9 @@ jobs:
             data/cases.parquet
           sparse-checkout-cone-mode: false
 
+      - name: Drop source that breaks CI
+        run: grep -rl 'dl.google.com' /etc/apt/sources.list.d/ | xargs -r sudo rm -f
+
       - uses: r-lib/actions/setup-r@v2
 
       - name: Install V8 system dependency
