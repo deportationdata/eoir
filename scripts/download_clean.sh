@@ -14,6 +14,7 @@ LOGFILE="logs/download_clean_$(date +%Y%m%d_%H%M%S).log"
 
 {
 Rscript scripts/eoir_appeals.R
+Rscript scripts/eoir_motions_pretermit.R
 Rscript scripts/eoir_associated_bond.R
 Rscript scripts/eoir_case.R
 Rscript scripts/eoir_court_applications.R
