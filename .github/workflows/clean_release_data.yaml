@@ -80,6 +80,7 @@ jobs:
           Rscript scripts/eoir_associated_bond.R
           Rscript scripts/eoir_case.R
           Rscript scripts/eoir_court_applications.R
+          Rscript scripts/eoir_motions_pretermit.R
           Rscript scripts/eoir_custody_history.R
           Rscript scripts/eoir_lookups.R
           Rscript scripts/eoir_proceeding.R

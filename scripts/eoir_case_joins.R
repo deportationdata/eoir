@@ -149,19 +149,24 @@ cases <-
 rm(court_applications_by_case)
 gc()
 
-motions_by_case <-
-  arrow::read_parquet("tmp/motions_cases.parquet")
+# Most recent motion to pretermit per case, from eoir_motions_pretermit.R
+pretermit_by_case <-
+  arrow::read_parquet("tmp/motions_pretermit_cases.parquet") |>
+  rows_distinct(idncase) |>
+  col_vals_not_null(idncase)
+
+n_before_pretermit <- nrow(cases)
 
 cases <-
   cases |>
-  left_join(motions_by_case, by = "idncase") |>
-  # cases with no motions have a true count of zero for every motion type
-  mutate(across(
-    starts_with("motion_") & ends_with("_count"),
-    ~ replace_na(.x, 0L)
-  ))
+  left_join(pretermit_by_case, by = "idncase")
 
-rm(motions_by_case)
+stopifnot(
+  "pretermit join must not add or drop cases" =
+    nrow(cases) == n_before_pretermit
+)
+
+rm(pretermit_by_case)
 gc()
 
 associated_bond_by_case <-
@@ -976,7 +981,9 @@ cases <-
     lpr_cancellation_decision_last,
 
     # Motions
-    starts_with("motion_"),
+    pretermit_motion_received_date_last,
+    pretermit_motion_completion_date_last,
+    pretermit_motion_decision_code_last,
 
     # IJ outcome
     case_outcome,
