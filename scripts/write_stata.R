@@ -22,7 +22,7 @@ cases <- if (any(nchar(names(cases)) > 32)) {
   cases
 }
 
-haven::write_dta(cases, "data/cases.dta", version = 15)
+smalldta::write_dta(cases, "data/cases.dta", version = 15)
 
 # use cases.dta
 # compress
