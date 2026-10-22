@@ -8,17 +8,29 @@ new_path <- if (length(args) >= 1) args[1] else "data/cases.parquet"
 old_path <- if (length(args) >= 2) args[2] else "main_ref/data/cases.parquet"
 out_path <- if (length(args) >= 3) args[3] else "compare_report.md"
 
+# Value counts for every character column (small: one row per distinct value),
+# used below to list values that appear in only one release.
+value_counts <- function(df) {
+  cols <- names(df)[vapply(df, is.character, logical(1))]
+  setNames(lapply(cols, function(col) {
+    vc <- vctrs::vec_count(df[[col]], sort = "count")
+    vc[!is.na(vc$key), ]
+  }), cols)
+}
+
 # Skim each side independently and bind the (small) result tables. Materializing
 # the union of both parquet files via bind_rows() previously OOM-killed the
 # runner on large updates.
 old <- arrow::read_parquet(old_path)
 old_cols <- names(old)
 old_skim <- as.data.frame(skim(old))
+old_vals <- value_counts(old)
 rm(old); invisible(gc())
 
 new <- arrow::read_parquet(new_path)
 new_cols <- names(new)
 new_skim <- as.data.frame(skim(new))
+new_vals <- value_counts(new)
 rm(new); invisible(gc())
 
 joined <- inner_join(
@@ -110,6 +122,47 @@ stacked_table <- function(type) {
 types <- intersect(c("character", "Date", "logical", "numeric"), unique(joined$skim_type))
 types <- c(types, setdiff(unique(joined$skim_type), types))
 
+# ---- new / removed values of categorical (character) variables --------------
+
+MAX_VALUES_SHOWN <- 30  # per variable per direction
+
+fmt_value <- function(v) {
+  v <- gsub("`", "'", v, fixed = TRUE)
+  ifelse(v == "", "*(empty string)*", paste0("`", gsub("|", "\\|", v, fixed = TRUE), "`"))
+}
+
+# Values present in `a` but not `b`, with their row count in `a`.
+value_diff <- function(a, b) {
+  out <- lapply(intersect(names(a), names(b)), function(col) {
+    d <- a[[col]][!(a[[col]]$key %in% b[[col]]$key), , drop = FALSE]
+    if (nrow(d) == 0) return(NULL)
+    data.frame(variable = col, value = d$key, n = d$count, stringsAsFactors = FALSE)
+  })
+  out <- bind_rows(out)
+  if (nrow(out) == 0) data.frame(variable = character(), value = character(), n = integer())
+  else arrange(out, match(variable, new_cols), desc(n))
+}
+
+values_table <- function(diff, side_label) {
+  if (nrow(diff) == 0) return("- None.")
+  body <- unlist(lapply(split(diff, factor(diff$variable, levels = unique(diff$variable))), function(d) {
+    shown <- head(d, MAX_VALUES_SHOWN)
+    lines <- sprintf("| %s | %s | %s |",
+                     c(paste0("`", d$variable[1], "`"), rep("", nrow(shown) - 1)),
+                     fmt_value(shown$value), fmt_int(shown$n))
+    if (nrow(d) > MAX_VALUES_SHOWN)
+      lines <- c(lines, sprintf("|  | *… and %d more* | %s |", nrow(d) - MAX_VALUES_SHOWN,
+                                fmt_int(sum(d$n[-seq_len(MAX_VALUES_SHOWN)]))))
+    lines
+  }))
+  c(sprintf("| variable | value | rows (%s) |", side_label), "|---|---|---:|", body)
+}
+
+new_values     <- value_diff(new_vals, old_vals)
+removed_values <- value_diff(old_vals, new_vals)
+n_vars_new     <- length(unique(new_values$variable))
+n_vars_removed <- length(unique(removed_values$variable))
+
 added   <- setdiff(new_cols, old_cols)
 removed <- setdiff(old_cols, new_cols)
 
@@ -128,6 +181,14 @@ lines <- c(
   "<details><summary>Full skim — old (main) and new (this PR) stacked per variable</summary>", "",
   "Each variable has two rows: the prior release on top, this PR below. The Δ column summarises what moved (bold = crosses a flag threshold).", "",
   unlist(lapply(types, stacked_table)),
+  "</details>", "",
+  sprintf("<details><summary>Categorical values — %d new value(s) across %d variable(s); %d removed value(s) across %d variable(s)</summary>",
+          nrow(new_values), n_vars_new, nrow(removed_values), n_vars_removed), "",
+  sprintf("Character variables only. At most %d values shown per variable, ordered by row count.", MAX_VALUES_SHOWN), "",
+  "#### New values (in this PR, not in main)", "",
+  values_table(new_values, "new"), "",
+  "#### Removed values (in main, not in this PR)", "",
+  values_table(removed_values, "old"), "",
   "</details>", ""
 )
 
