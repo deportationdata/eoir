@@ -955,6 +955,7 @@ cases <-
     bond_hearing_request_date_first,
     bond_completion_date_first,
     bond_decision_first,
+    bond_outcome_simplified_first,
     initial_bond_amount_first,
     new_bond_amount_first,
 
@@ -967,6 +968,7 @@ cases <-
     bond_hearing_request_date_second,
     bond_completion_date_second,
     bond_decision_second,
+    bond_outcome_simplified_second,
     initial_bond_amount_second,
     new_bond_amount_second,
 
@@ -979,6 +981,7 @@ cases <-
     bond_hearing_request_date_last,
     bond_completion_date_last,
     bond_decision_last,
+    bond_outcome_simplified_last,
     initial_bond_amount_last,
     new_bond_amount_last,
 
