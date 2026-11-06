@@ -817,6 +817,55 @@ cases <-
       ~ str_replace(.x, "^([^(]+)", \(m) str_to_title(m))
     )
   ) |>
+  mutate(
+    case_outcome_for_noncitizen = recode_values(
+      case_outcome,
+      c(
+        "Administrative Closing - Other",
+        "Administrative Closure",
+        "Prosecutorial Discretion - Admin Close",
+        "Failure To Prosecute (DHS Cases Only)",
+        "In Court Prosecutorial Discretion - Admin Closure",
+        "Relief Granted",
+        "Temporary Protected Status",
+        "Terminated",
+        "Grant",
+        "Grant-CAT Deferral"
+      ) ~
+        "Favorable",
+      c(
+        "Remove",
+        "Voluntary Departure",
+        "Abandonment",
+        "Deny"
+      ) ~
+        "Unfavorable",
+      c(
+        "Change Of Venue",
+        "Haitian",
+        "Jurisdiction Transferred To The BIA",
+        "Other",
+        "Other Administrative Completion",
+        "Remove-CAT Deferral Granted",
+        "Remove-CAT Withholding Granted",
+        "Remove-INA Withholding Granted",
+        "Transfer",
+        # Withdraw is the WHO-case spelling of Withdrawn
+        "Withdraw",
+        "Withdrawn",
+        "Zero Bond"
+      ) ~
+        "Ambiguous",
+      c(
+        "Dismissed By IJ"
+      ) ~
+        if_else(
+          ij_or_bia_completion_date_last < as.Date("2025-01-20"),
+          "Favorable",
+          "Ambiguous"
+        )
+    )
+  ) |>
   rename(
     court_code_first = first_court_code,
     court_first = first_court,
@@ -994,6 +1043,7 @@ cases <-
 
     # IJ outcome
     case_outcome,
+    case_outcome_for_noncitizen,
 
     # BIA appeal
     appeal_type_code,
@@ -1033,6 +1083,35 @@ cases <-
     # * 2. withholding-only proceedings (WHO)
     case_type_code %in% c("RMV", "WHO")
   )
+
+# Validate case_outcome_for_noncitizen construction
+cases |>
+  col_vals_in_set(
+    case_outcome_for_noncitizen,
+    c("Favorable", "Unfavorable", "Ambiguous", NA),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  # every outcome except the intentionally-unclassified WHO-only decisions
+  # should get a category; a new case_outcome value surfaces here as an NA
+  col_vals_not_null(
+    case_outcome_for_noncitizen,
+    preconditions = \(x) {
+      dplyr::filter(
+        x,
+        !is.na(case_outcome),
+        !case_outcome %in%
+          c(
+            "Abandonment",
+            "Deny",
+            "Grant",
+            "Grant-CAT Deferral",
+            "Grant-CAT Withholding"
+          )
+      )
+    },
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
+  invisible()
 
 arrow::write_parquet(
   cases,
