@@ -152,8 +152,34 @@ associated_bond_tbl <-
     new_bond_amount = new_bond,
     hearing_location_code = hearing_loc_code
   ) |>
-  # completion-date ties are broken by when the hearing was requested (the
-  # same tie-break rule as the Stata replication), then by record id
+  mutate(
+    # Was a bond granted? Decision code -> outcome, from the review table:
+    #   Yes: G (Amelioration Granted), I (Bond Amount Increased),
+    #        C (Bond Granted-Amount Decreased), R (Bond Granted-Own
+    #        Recognizance), F (Flores - Release)
+    #   No:  D (Amelioration Denied-No Jurisdiction),
+    #        J (Bond Denied-No Jurisdiction)
+    #   No unless an initial or new bond amount is recorded:
+    #        E (Amelioration Denied), S (Bond Denied- No Change (DHS Bond
+    #        Amount Unchanged)), N (Bond Denied- No Change (No Bond Set By
+    #        DHS)), A (Bond Denied-Moot), W (Bond Request Withdrawn),
+    #        L (Flores - No Release), O (Other)
+    # A zero bond amount is a placeholder (it occurs mostly with denied,
+    # withdrawn, and no-jurisdiction decisions), so "recorded" means > 0.
+    bond_amount_recorded = (!is.na(initial_bond_amount) &
+      initial_bond_amount > 0) |
+      (!is.na(new_bond_amount) & new_bond_amount > 0),
+    bond_outcome_simplified = case_when(
+      bond_decision %in% c("G", "I", "C", "R", "F") ~ "Bond",
+      bond_decision %in% c("D", "J") ~ "No Bond",
+      bond_decision %in%
+        c("E", "S", "N", "A", "W", "L", "O") &
+        bond_amount_recorded ~ "Bond",
+      bond_decision %in% c("E", "S", "N", "A", "W", "L", "O") ~ "No Bond",
+      TRUE ~ NA_character_
+    ),
+  ) |>
+  select(-bond_amount_recorded) |>
   arrange(
     idncase,
     bond_completion_date,
@@ -165,6 +191,12 @@ associated_bond_tbl <-
 associated_bond_tbl |>
   col_vals_gte(initial_bond_amount, 0, na_pass = TRUE) |>
   col_vals_gte(new_bond_amount, 0, na_pass = TRUE) |>
+  col_vals_in_set(bond_outcome_simplified, c("Bond", "No Bond", NA)) |>
+  # every coded decision gets an outcome; only a missing decision is NA
+  col_vals_expr(
+    expr(is.na(bond_decision) == is.na(bond_outcome_simplified)),
+    actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
+  ) |>
   col_vals_expr(
     expr(
       is.na(bond_hearing_request_date) |
@@ -186,6 +218,7 @@ associated_bond_by_case <-
       hearing_location_code_first = first(hearing_location_code),
       bond_hearing_request_date_first = first(bond_hearing_request_date),
       bond_decision_first = first(bond_decision),
+      bond_outcome_simplified_first = first(bond_outcome_simplified),
       initial_bond_amount_first = first(initial_bond_amount),
       new_bond_amount_first = first(new_bond_amount),
 
@@ -195,6 +228,7 @@ associated_bond_by_case <-
       hearing_location_code_second = hearing_location_code[2],
       bond_hearing_request_date_second = bond_hearing_request_date[2],
       bond_decision_second = bond_decision[2],
+      bond_outcome_simplified_second = bond_outcome_simplified[2],
       initial_bond_amount_second = initial_bond_amount[2],
       new_bond_amount_second = new_bond_amount[2],
 
@@ -204,6 +238,7 @@ associated_bond_by_case <-
       hearing_location_code_last = last(hearing_location_code),
       bond_hearing_request_date_last = last(bond_hearing_request_date),
       bond_decision_last = last(bond_decision),
+      bond_outcome_simplified_last = last(bond_outcome_simplified),
       initial_bond_amount_last = last(initial_bond_amount),
       new_bond_amount_last = last(new_bond_amount)
     ),
