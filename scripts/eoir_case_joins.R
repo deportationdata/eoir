@@ -119,7 +119,7 @@ zip_lookup |>
     n_anasco,
     1,
     preconditions = \(x) {
-      tibble(n_anasco = sum(x$county == utf8_literal("Añasco Municipio")))
+      tibble(n_anasco = sum(x$county == utf8_literal("Añasco")))
     }
   ) |>
   col_vals_in_set(
