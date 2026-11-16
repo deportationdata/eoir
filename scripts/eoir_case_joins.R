@@ -119,7 +119,7 @@ zip_lookup |>
     n_anasco,
     1,
     preconditions = \(x) {
-      tibble(n_anasco = sum(x$county == utf8_literal("Añasco Municipio")))
+      tibble(n_anasco = sum(x$county == utf8_literal("Añasco")))
     }
   ) |>
   col_vals_in_set(
@@ -187,20 +187,31 @@ appeals_by_case <-
 
 cases <-
   cases |>
-  left_join(appeals_by_case, by = "idncase")
+  left_join(appeals_by_case, by = "idncase") |>
+  # cases absent from the appeals table have no appeals
+  mutate(
+    appeal_count = replace_na(appeal_count, 0L),
+    ever_remanded = replace_na(ever_remanded, FALSE),
+    has_pending_appeal = replace_na(has_pending_appeal, FALSE)
+  )
 
 rm(appeals_by_case)
 gc()
 
-# replace final_completion_date with bia_decision_date if BIA decided later
+# ij_or_bia_completion_date_last is the last appeal's BIA decision date,
+# if that is later than the IJ completion date (final_completion_date).
+# Otherwise it is the IJ completion date.
+# final_completion_date itself is not changed.
+
+# Log how many cases have a later BIA decision (this count also includes cases with no IJ date).
 n_bia_override <- sum(
-  !is.na(cases$bia_decision_date) &
+  !is.na(cases$bia_decision_date_last) &
     (is.na(cases$final_completion_date) |
-      cases$bia_decision_date > cases$final_completion_date),
+      cases$bia_decision_date_last > cases$final_completion_date),
   na.rm = TRUE
 )
 message(sprintf(
-  "final_completion_date overridden by bia_decision_date for %d cases",
+  "final_completion_date overridden by bia_decision_date_last for %d cases",
   n_bia_override
 ))
 
@@ -208,12 +219,12 @@ message(sprintf(
 cases <-
   cases |>
   mutate(
-    # combine to find the last completion date whether IJ or BIA
+    # a pending last appeal has no BIA decision date, so the IJ date is used
     ij_or_bia_completion_date_last = if_else(
-      !is.na(bia_decision_date) &
+      !is.na(bia_decision_date_last) &
         !is.na(final_completion_date) &
-        bia_decision_date > final_completion_date,
-      bia_decision_date,
+        bia_decision_date_last > final_completion_date,
+      bia_decision_date_last,
       final_completion_date
     )
   )
@@ -357,8 +368,14 @@ cases <-
       "E" ~ "defensive",
       "J" ~ "J"
     ),
-    custody_at_appeal = recode_values(
-      custody_at_appeal_code,
+    custody_at_appeal_first = recode_values(
+      custody_at_appeal_code_first,
+      "N" ~ "never detained",
+      "R" ~ "released",
+      "D" ~ "detained throughout"
+    ),
+    custody_at_appeal_last = recode_values(
+      custody_at_appeal_code_last,
       "N" ~ "never detained",
       "R" ~ "released",
       "D" ~ "detained throughout"
@@ -416,25 +433,39 @@ cases <- cases |>
     relationship = "many-to-one"
   )
 
-# Appeal type
+# Appeal type (first and last appeal)
+appeal_type_desc <-
+  tbllookupAppealType |>
+  filter(!is.na(str_appl_code)) |>
+  select(str_appl_code, appeal_type = str_appl_description)
+
 cases <- cases |>
-  rename(appeal_type_code = appeal_type) |>
   left_join(
-    tbllookupAppealType |>
-      filter(!is.na(str_appl_code)) |>
-      select(str_appl_code, appeal_type = str_appl_description),
-    by = c("appeal_type_code" = "str_appl_code"),
+    appeal_type_desc |> rename(appeal_type_first = appeal_type),
+    by = c("appeal_type_code_first" = "str_appl_code"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    appeal_type_desc |> rename(appeal_type_last = appeal_type),
+    by = c("appeal_type_code_last" = "str_appl_code"),
     relationship = "many-to-one"
   )
 
-# BIA decision
+# BIA decision (first and last appeal)
+bia_decision_desc <-
+  tblLookupBIADecision |>
+  filter(!is.na(str_code)) |>
+  select(str_code, bia_decision = str_description)
+
 cases <- cases |>
-  rename(bia_decision_code = bia_decision) |>
   left_join(
-    tblLookupBIADecision |>
-      filter(!is.na(str_code)) |>
-      select(str_code, bia_decision = str_description),
-    by = c("bia_decision_code" = "str_code"),
+    bia_decision_desc |> rename(bia_decision_first = bia_decision),
+    by = c("bia_decision_code_first" = "str_code"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    bia_decision_desc |> rename(bia_decision_last = bia_decision),
+    by = c("bia_decision_code_last" = "str_code"),
     relationship = "many-to-one"
   )
 
@@ -548,23 +579,41 @@ cases <- cases |>
     relationship = "many-to-one"
   )
 
-# BIA decision type
+# BIA decision type (first and last appeal)
+bia_decision_type_desc <-
+  tblLookupBIADecisionType |>
+  filter(!is.na(str_code)) |>
+  select(str_code, bia_decision_type = str_description)
+
 cases <- cases |>
   left_join(
-    tblLookupBIADecisionType |>
-      filter(!is.na(str_code)) |>
-      select(str_code, bia_decision_type = str_description),
-    by = c("bia_decision_type_code" = "str_code"),
+    bia_decision_type_desc |>
+      rename(bia_decision_type_first = bia_decision_type),
+    by = c("bia_decision_type_code_first" = "str_code"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    bia_decision_type_desc |>
+      rename(bia_decision_type_last = bia_decision_type),
+    by = c("bia_decision_type_code_last" = "str_code"),
     relationship = "many-to-one"
   )
 
-# Appeal filed by
+# Appeal filed by (first and last appeal)
+filed_by_desc <-
+  tblLookupFiledBy |>
+  filter(!is.na(str_code)) |>
+  select(str_code, appeal_filed_by = str_description)
+
 cases <- cases |>
   left_join(
-    tblLookupFiledBy |>
-      filter(!is.na(str_code)) |>
-      select(str_code, appeal_filed_by = str_description),
-    by = c("appeal_filed_by_code" = "str_code"),
+    filed_by_desc |> rename(appeal_filed_by_first = appeal_filed_by),
+    by = c("appeal_filed_by_code_first" = "str_code"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    filed_by_desc |> rename(appeal_filed_by_last = appeal_filed_by),
+    by = c("appeal_filed_by_code_last" = "str_code"),
     relationship = "many-to-one"
   )
 
@@ -605,7 +654,10 @@ cases |>
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
   col_vals_in_set(
-    bia_decision_type_code,
+    c(
+      bia_decision_type_code_first,
+      bia_decision_type_code_last
+    ),
     c(tblLookupBIADecisionType$str_code, NA),
     actions = action_levels(warn_at = 0.0001, stop_at = 0.001)
   ) |>
@@ -730,23 +782,43 @@ cases |>
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
-    appeal_type,
-    preconditions = \(x) dplyr::filter(x, !is.na(appeal_type_code)),
+    appeal_type_first,
+    preconditions = \(x) dplyr::filter(x, !is.na(appeal_type_code_first)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
-    appeal_filed_by,
-    preconditions = \(x) dplyr::filter(x, !is.na(appeal_filed_by_code)),
+    appeal_type_last,
+    preconditions = \(x) dplyr::filter(x, !is.na(appeal_type_code_last)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
-    bia_decision,
-    preconditions = \(x) dplyr::filter(x, !is.na(bia_decision_code)),
+    appeal_filed_by_first,
+    preconditions = \(x) dplyr::filter(x, !is.na(appeal_filed_by_code_first)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
-    bia_decision_type,
-    preconditions = \(x) dplyr::filter(x, !is.na(bia_decision_type_code)),
+    appeal_filed_by_last,
+    preconditions = \(x) dplyr::filter(x, !is.na(appeal_filed_by_code_last)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    bia_decision_first,
+    preconditions = \(x) dplyr::filter(x, !is.na(bia_decision_code_first)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    bia_decision_last,
+    preconditions = \(x) dplyr::filter(x, !is.na(bia_decision_code_last)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    bia_decision_type_first,
+    preconditions = \(x) dplyr::filter(x, !is.na(bia_decision_type_code_first)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  col_vals_not_null(
+    bia_decision_type_last,
+    preconditions = \(x) dplyr::filter(x, !is.na(bia_decision_type_code_last)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   # Check that recodes resolved values (custody/custody_at_appeal should not be NA when code is present)
@@ -756,10 +828,24 @@ cases |>
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
   col_vals_not_null(
-    custody_at_appeal,
-    preconditions = \(x) dplyr::filter(x, !is.na(custody_at_appeal_code)),
+    custody_at_appeal_first,
+    preconditions = \(x) dplyr::filter(x, !is.na(custody_at_appeal_code_first)),
     actions = action_levels(warn_at = 0.01, stop_at = 0.05)
   ) |>
+  col_vals_not_null(
+    custody_at_appeal_last,
+    preconditions = \(x) dplyr::filter(x, !is.na(custody_at_appeal_code_last)),
+    actions = action_levels(warn_at = 0.01, stop_at = 0.05)
+  ) |>
+  # Appeal summary columns: never empty; cases with no appeals have 0 / FALSE
+  col_vals_gte(appeal_count, 0) |>
+  col_vals_not_null(c(appeal_count, ever_remanded, has_pending_appeal)) |>
+  col_vals_expr(
+    expr(!ever_remanded & !has_pending_appeal),
+    preconditions = \(x) dplyr::filter(x, appeal_count == 0)
+  ) |>
+  # pending age is present exactly when the case has a pending appeal
+  col_vals_expr(expr(is.na(pending_age_days) == !has_pending_appeal)) |>
   invisible()
 
 make_abbr_caps <- function(x, abbr) {
@@ -848,8 +934,11 @@ cases <-
     nta_date_to_bond_completion_date_last_days = as.numeric(
       difftime(bond_completion_date_last, nta_date, units = "days")
     ),
-    appeal_filed_date_to_bia_decision_date_days = as.numeric(
-      difftime(bia_decision_date, appeal_filed_date, units = "days")
+    appeal_filed_date_to_bia_decision_date_first_days = as.numeric(
+      difftime(bia_decision_date_first, appeal_filed_date_first, units = "days")
+    ),
+    appeal_filed_date_to_bia_decision_date_last_days = as.numeric(
+      difftime(bia_decision_date_last, appeal_filed_date_last, units = "days")
     ),
     bond_hearing_request_date_first_to_bond_completion_date_first_days = as.numeric(
       difftime(
@@ -995,20 +1084,41 @@ cases <-
     # IJ outcome
     case_outcome,
 
-    # BIA appeal
-    appeal_type_code,
-    appeal_type,
-    appeal_filed_by_code,
-    appeal_filed_by,
-    appeal_filed_date,
-    e27_date,
-    custody_at_appeal_code,
-    custody_at_appeal,
-    bia_decision_code,
-    bia_decision,
-    bia_decision_type_code,
-    bia_decision_type,
-    bia_decision_date,
+    # BIA appeals: summary across all appeals
+    appeal_count,
+    ever_remanded,
+    has_pending_appeal,
+    pending_age_days,
+
+    # BIA appeals: first appeal
+    appeal_type_code_first,
+    appeal_type_first,
+    appeal_filed_by_code_first,
+    appeal_filed_by_first,
+    appeal_filed_date_first,
+    e27_date_first,
+    custody_at_appeal_code_first,
+    custody_at_appeal_first,
+    bia_decision_code_first,
+    bia_decision_first,
+    bia_decision_type_code_first,
+    bia_decision_type_first,
+    bia_decision_date_first,
+
+    # BIA appeals: last appeal
+    appeal_type_code_last,
+    appeal_type_last,
+    appeal_filed_by_code_last,
+    appeal_filed_by_last,
+    appeal_filed_date_last,
+    e27_date_last,
+    custody_at_appeal_code_last,
+    custody_at_appeal_last,
+    bia_decision_code_last,
+    bia_decision_last,
+    bia_decision_type_code_last,
+    bia_decision_type_last,
+    bia_decision_date_last,
 
     # Case lengths in days
     nta_date_to_ij_completion_date_last_days,
@@ -1016,7 +1126,8 @@ cases <-
     nta_date_to_bond_completion_date_first_days,
     nta_date_to_bond_completion_date_second_days,
     nta_date_to_bond_completion_date_last_days,
-    appeal_filed_date_to_bia_decision_date_days,
+    appeal_filed_date_to_bia_decision_date_first_days,
+    appeal_filed_date_to_bia_decision_date_last_days,
     bond_hearing_request_date_first_to_bond_completion_date_first_days,
     bond_hearing_request_date_second_to_bond_completion_date_second_days,
     bond_hearing_request_date_last_to_bond_completion_date_last_days

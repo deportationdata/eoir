@@ -4,6 +4,7 @@ set -e
 # mkdir -p inputs_eoir
 # curl "https://fileshare.eoir.justice.gov/EOIR%20Case%20Data.zip" -o eoir_data.zip
 
+# unzip -Z1 eoir_data.zip > inputs_eoir/zip_contents.txt
 # unzip -o -j eoir_data.zip -d inputs_eoir
 # rm eoir_data.zip
 # mkdir -p tmp
