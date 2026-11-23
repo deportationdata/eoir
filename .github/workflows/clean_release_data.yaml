@@ -66,6 +66,8 @@ jobs:
 
       - name: Unzip data
         run: |
+          # keep the zip's file list: its folder name ("EOIR Case Data 2026-1001") gives the extract date
+          unzip -Z1 eoir_data.zip > inputs_eoir/zip_contents.txt
           unzip -j eoir_data.zip -d inputs_eoir
           rm eoir_data.zip
           mkdir -p tmp
@@ -106,7 +108,7 @@ jobs:
           git config --local user.name "GitHub Action"
 
           git checkout -b eoir-update-$(date +%Y-%m-%d)
-          git add data/cases.parquet .last_modified
+          git add data/cases.parquet data/appeals.parquet .last_modified
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
@@ -127,7 +129,7 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          git add data/cases.parquet 
+          git add data/cases.parquet data/appeals.parquet
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
